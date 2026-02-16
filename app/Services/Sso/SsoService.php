@@ -1,0 +1,144 @@
+<?php
+
+namespace App\Services\Sso;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+class SsoService
+{
+    protected string $baseUrl;
+    protected string $dataUrl;
+    protected string $clientId;
+    protected string $clientSecret;
+
+    public function __construct()
+    {
+        $this->baseUrl = config('sso.base_url');
+        $this->dataUrl = config('sso.data_url');
+        $this->clientId = config('sso.client_id');
+        $this->clientSecret = config('sso.client_secret');
+    }
+
+    /**
+     * Get authorization URL
+     */
+    public function getAuthorizationUrl(?string $state = null): string
+    {
+        $params = [
+            'client_id' => $this->clientId,
+        ];
+
+        if ($state) {
+            $params['state'] = $state;
+        }
+
+        return config('sso.authorize_url') . '?' . http_build_query($params);
+    }
+
+    /**
+     * Exchange authorization code for user data
+     */
+    public function getUserFromCode(string $code): ?array
+    {
+        try {
+            $response = Http::asForm()->post(config('sso.token_url'), [
+                'code' => $code,
+                'client_id' => $this->clientId,
+                'client_secret' => $this->clientSecret,
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if ($data['status'] === 'success' && isset($data['data'])) {
+                    return $data['data'];
+                }
+            }
+
+            Log::error('SSO Token Exchange Failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('SSO Token Exchange Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get all employees
+     */
+    public function getAllEmployees(): ?array
+    {
+        try {
+            $response = Http::asForm()->post(
+                $this->dataUrl . config('sso.endpoints.employees'),
+                ['client_secret' => $this->clientSecret]
+            );
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('SSO Get Employees Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get all roles
+     */
+    public function getAllRoles(): ?array
+    {
+        try {
+            $response = Http::get($this->dataUrl . config('sso.endpoints.roles'));
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('SSO Get Roles Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get employees by role
+     */
+    public function getEmployeesByRole(string $role): ?array
+    {
+        try {
+            $response = Http::asForm()->post(
+                $this->dataUrl . config('sso.endpoints.employees_by_role'),
+                [
+                    'client_secret' => $this->clientSecret,
+                    'role' => $role,
+                ]
+            );
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            Log::error('SSO Get Employees By Role Error', [
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+}
