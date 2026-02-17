@@ -60,16 +60,6 @@ class SsoAuthController extends Controller
                 ->withErrors(['sso' => 'No authorization code received.']);
         }
 
-        // DEBUG: After successful SSO login, before token exchange
-        dd([
-            'message' => 'DEBUG: SSO Login Successful - About to exchange code',
-            'code_prefix' => substr($code, 0, 10),
-            'state' => $requestState,
-            'config_token_url' => config('sso.token_url'),
-            'config_authorize_url' => config('sso.authorize_url'),
-            'full_query_string' => $request->getQueryString(),
-        ]);
-
         // Exchange code for user data
         $ssoUserData = $this->ssoService->getUserFromCode($code);
 
@@ -79,14 +69,24 @@ class SsoAuthController extends Controller
         }
 
         // Create or update user
-        $user = $this->findOrCreateUser($ssoUserData);
+        try {
+            $user = $this->findOrCreateUser($ssoUserData);
 
-        // Login user
-        Auth::login($user, true);
+            // Login user
+            Auth::login($user, true);
 
-        // Redirect to intended page or dashboard
-        return redirect()->intended(route('dashboard'))
-            ->with('success', 'Berhasil login sebagai ' . $user->name);
+            // Redirect to intended page or dashboard
+            return redirect()->intended(route('dashboard'))
+                ->with('success', 'Berhasil login sebagai ' . $user->name);
+        } catch (\Exception $e) {
+            Log::error('SSO Login - User Creation Failed', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return redirect()->route('login')
+                ->withErrors(['sso' => 'Gagal membuat user: ' . $e->getMessage()]);
+        }
     }
 
     /**
