@@ -29,6 +29,21 @@ class SsoAuthController extends Controller
         // Redirect to SSO authorization URL
         $authUrl = $this->ssoService->getAuthorizationUrl($state);
 
+        // DEBUG: Log and display the authorization URL
+        Log::info('SSO Redirect - Authorization URL', [
+            'url' => $authUrl,
+            'state' => $state,
+            'config_authorize_url' => config('sso.authorize_url'),
+        ]);
+
+        dd([
+            'message' => 'DEBUG: About to redirect to SSO',
+            'authUrl' => $authUrl,
+            'state' => $state,
+            'config_authorize_url' => config('sso.authorize_url'),
+            'config_token_url' => config('sso.token_url'),
+        ]);
+
         return redirect()->away($authUrl);
     }
 
