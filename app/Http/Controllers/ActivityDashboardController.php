@@ -7,6 +7,7 @@ use App\Models\MonitoringData;
 use App\Models\PjMapping;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 
 class ActivityDashboardController extends Controller
 {
@@ -182,10 +183,12 @@ class ActivityDashboardController extends Controller
 
     /**
      * Get all village data (target from pj_mappings)
+     * Include villages from monitoring_data AND villages from pj_mappings without monitoring data
      */
     protected function getVillageData(Activity $activity): array
     {
-        $data = MonitoringData::where('monitoring_data.activity_id', $activity->id)
+        // First, get all villages from monitoring_data with pj_mapping data
+        $monitoringVillages = MonitoringData::where('monitoring_data.activity_id', $activity->id)
             ->leftJoin('pj_mappings', function ($join) use ($activity) {
                 $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
                     ->where('pj_mappings.activity_id', $activity->id);
@@ -202,9 +205,33 @@ class ActivityDashboardController extends Controller
                 'pj_mappings.pj_name',
                 'pj_mappings.target'
             )
-            ->orderBy('monitoring_data.regency_code')
-            ->orderBy('monitoring_data.village_name')
             ->get()
+            ->keyBy('village_code');
+
+        // Get villages from pj_mappings that don't have monitoring_data
+        $pjOnlyVillages = PjMapping::where('pj_mappings.activity_id', $activity->id)
+            ->whereNotIn('pj_mappings.village_code', $monitoringVillages->keys())
+            ->select(
+                'pj_mappings.village_code',
+                'pj_mappings.desa_nama as village_name',
+                \DB::raw('SUBSTRING(pj_mappings.village_code, 1, 4) as regency_code'),
+                'pj_mappings.pj_code',
+                'pj_mappings.pj_name',
+                'pj_mappings.target'
+            )
+            ->get()
+            ->map(function ($item) {
+                $item->open = 0;
+                $item->submitted = 0;
+                $item->approved = 0;
+                $item->rejected = 0;
+                return $item;
+            });
+
+        // Combine both collections
+        $allVillages = $monitoringVillages->concat($pjOnlyVillages)
+            ->sortBy('regency_code')
+            ->sortBy('village_name', SORT_REGULAR, true)
             ->map(function ($item) {
                 $total = $item->target > 0 ? $item->target : 1;
                 return [
@@ -215,19 +242,19 @@ class ActivityDashboardController extends Controller
                     'pj_code' => $item->pj_code,
                     'pj_name' => $item->pj_name,
                     'target' => $item->target ?? 0,
-                    'open' => $item->open,
-                    'submitted' => $item->submitted,
-                    'approved' => $item->approved,
-                    'rejected' => $item->rejected,
-                    'pct_open' => round(($item->open / $total) * 100, 2),
-                    'pct_submitted' => round(($item->submitted / $total) * 100, 2),
-                    'pct_approved' => round(($item->approved / $total) * 100, 2),
-                    'pct_rejected' => round(($item->rejected / $total) * 100, 2),
+                    'open' => $item->open ?? 0,
+                    'submitted' => $item->submitted ?? 0,
+                    'approved' => $item->approved ?? 0,
+                    'rejected' => $item->rejected ?? 0,
+                    'pct_open' => round((($item->open ?? 0) / $total) * 100, 2),
+                    'pct_submitted' => round((($item->submitted ?? 0) / $total) * 100, 2),
+                    'pct_approved' => round((($item->approved ?? 0) / $total) * 100, 2),
+                    'pct_rejected' => round((($item->rejected ?? 0) / $total) * 100, 2),
                 ];
             })
             ->toArray();
 
-        return $data;
+        return $allVillages;
     }
 
     /**
