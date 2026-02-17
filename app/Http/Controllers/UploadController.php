@@ -53,14 +53,25 @@ class UploadController extends Controller
             $activity->pjMappings()->delete();
 
             $created = 0;
+            $skipped = 0;
+            $processedCodes = [];
+
             foreach ($data as $item) {
                 if (!isset($item['Id']) || !isset($item['PJ'])) {
+                    $skipped++;
                     continue;
                 }
 
-                // Create PJ mapping
                 $villageCode = $item['Id'];
                 $pjName = $item['PJ'];
+
+                // Skip if duplicate village_code in same file
+                if (in_array($villageCode, $processedCodes)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $processedCodes[] = $villageCode;
 
                 $activity->pjMappings()->create([
                     'village_code' => $villageCode,
@@ -89,7 +100,12 @@ class UploadController extends Controller
                 'status' => 'completed',
             ]);
 
-            return back()->with('success', "JSON uploaded successfully! Created {$created} PJ mappings.");
+            $message = "JSON uploaded successfully! Created {$created} PJ mappings.";
+            if ($skipped > 0) {
+                $message .= " Skipped {$skipped} (missing fields or duplicates).";
+            }
+
+            return back()->with('success', $message);
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading JSON: ' . $e->getMessage());
