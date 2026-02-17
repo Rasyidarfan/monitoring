@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\MonitoringData;
+use App\Models\PjMapping;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -38,13 +39,18 @@ class ActivityDashboardController extends Controller
     }
 
     /**
-     * Get activity overall metrics
+     * Get activity overall metrics (target from pj_mappings)
      */
     protected function getActivityMetrics(Activity $activity): array
     {
-        $totals = MonitoringData::where('activity_id', $activity->id)
+        // Target from pj_mappings
+        $targetData = PjMapping::where('activity_id', $activity->id)
+            ->selectRaw('SUM(target) as total_target')
+            ->first();
+
+        // Metrics from monitoring_data
+        $metricsData = MonitoringData::where('activity_id', $activity->id)
             ->selectRaw('
-                SUM(target) as total_target,
                 SUM(open) as total_open,
                 SUM(submitted) as total_submitted,
                 SUM(approved) as total_approved,
@@ -52,36 +58,40 @@ class ActivityDashboardController extends Controller
             ')
             ->first();
 
-        $total = $totals->total_target ?? 0;
+        $total = $targetData->total_target ?? 0;
 
         return [
-            'total_target' => $totals->total_target ?? 0,
-            'total_open' => $totals->total_open ?? 0,
-            'total_submitted' => $totals->total_submitted ?? 0,
-            'total_approved' => $totals->total_approved ?? 0,
-            'total_rejected' => $totals->total_rejected ?? 0,
-            'pct_open' => $total > 0 ? round(($totals->total_open / $total) * 100, 2) : 0,
-            'pct_submitted' => $total > 0 ? round(($totals->total_submitted / $total) * 100, 2) : 0,
-            'pct_approved' => $total > 0 ? round(($totals->total_approved / $total) * 100, 2) : 0,
-            'pct_rejected' => $total > 0 ? round(($totals->total_rejected / $total) * 100, 2) : 0,
+            'total_target' => $total,
+            'total_open' => $metricsData->total_open ?? 0,
+            'total_submitted' => $metricsData->total_submitted ?? 0,
+            'total_approved' => $metricsData->total_approved ?? 0,
+            'total_rejected' => $metricsData->total_rejected ?? 0,
+            'pct_open' => $total > 0 ? round(($metricsData->total_open ?? 0) / $total * 100, 2) : 0,
+            'pct_submitted' => $total > 0 ? round(($metricsData->total_submitted ?? 0) / $total * 100, 2) : 0,
+            'pct_approved' => $total > 0 ? round(($metricsData->total_approved ?? 0) / $total * 100, 2) : 0,
+            'pct_rejected' => $total > 0 ? round(($metricsData->total_rejected ?? 0) / $total * 100, 2) : 0,
         ];
     }
 
     /**
-     * Get data per regency
+     * Get data per regency (target from pj_mappings)
      */
     protected function getRegencyData(Activity $activity): array
     {
         $data = MonitoringData::where('activity_id', $activity->id)
+            ->leftJoin('pj_mappings', function($join) use ($activity) {
+                $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
+                     ->where('pj_mappings.activity_id', $activity->id);
+            })
             ->selectRaw('
-                regency_code,
-                SUM(target) as total_target,
-                SUM(open) as total_open,
-                SUM(submitted) as total_submitted,
-                SUM(approved) as total_approved,
-                SUM(rejected) as total_rejected
+                monitoring_data.regency_code,
+                COALESCE(SUM(pj_mappings.target), 0) as total_target,
+                SUM(monitoring_data.open) as total_open,
+                SUM(monitoring_data.submitted) as total_submitted,
+                SUM(monitoring_data.approved) as total_approved,
+                SUM(monitoring_data.rejected) as total_rejected
             ')
-            ->groupBy('regency_code')
+            ->groupBy('monitoring_data.regency_code')
             ->get()
             ->map(function ($item) {
                 $total = $item->total_target > 0 ? $item->total_target : 1;
@@ -124,16 +134,18 @@ class ActivityDashboardController extends Controller
         }
 
         foreach ($pjMappings as $pjName) {
-            // Get village codes for this PJ
-            $villageCodes = $activity->pjMappings()
+            // Get village codes for this PJ from pj_mappings
+            $pjMappingData = $activity->pjMappings()
                 ->where('pj_name', $pjName)
-                ->pluck('village_code');
+                ->get();
+
+            $villageCodes = $pjMappingData->pluck('village_code');
+            $totalTarget = $pjMappingData->sum('target');
 
             // Get metrics for villages under this PJ
-            $metrics = MonitoringData::where('activity_id', $activity->id)
+            $metricsData = MonitoringData::where('activity_id', $activity->id)
                 ->whereIn('village_code', $villageCodes)
                 ->selectRaw('
-                    SUM(target) as total_target,
                     SUM(open) as total_open,
                     SUM(submitted) as total_submitted,
                     SUM(approved) as total_approved,
@@ -142,20 +154,20 @@ class ActivityDashboardController extends Controller
                 ')
                 ->first();
 
-            if ($metrics && $metrics->village_count > 0) {
-                $total = $metrics->total_target > 0 ? $metrics->total_target : 1;
+            if ($metricsData && $metricsData->village_count > 0) {
+                $total = $totalTarget > 0 ? $totalTarget : 1;
                 $data[] = [
                     'pj_name' => $pjName,
-                    'village_count' => $metrics->village_count,
-                    'total_target' => $metrics->total_target,
-                    'total_open' => $metrics->total_open,
-                    'total_submitted' => $metrics->total_submitted,
-                    'total_approved' => $metrics->total_approved,
-                    'total_rejected' => $metrics->total_rejected,
-                    'pct_open' => round(($metrics->total_open / $total) * 100, 2),
-                    'pct_submitted' => round(($metrics->total_submitted / $total) * 100, 2),
-                    'pct_approved' => round(($metrics->total_approved / $total) * 100, 2),
-                    'pct_rejected' => round(($metrics->total_rejected / $total) * 100, 2),
+                    'village_count' => $metricsData->village_count,
+                    'total_target' => $totalTarget,
+                    'total_open' => $metricsData->total_open ?? 0,
+                    'total_submitted' => $metricsData->total_submitted ?? 0,
+                    'total_approved' => $metricsData->total_approved ?? 0,
+                    'total_rejected' => $metricsData->total_rejected ?? 0,
+                    'pct_open' => round(($metricsData->total_open ?? 0) / $total * 100, 2),
+                    'pct_submitted' => round(($metricsData->total_submitted ?? 0) / $total * 100, 2),
+                    'pct_approved' => round(($metricsData->total_approved ?? 0) / $total * 100, 2),
+                    'pct_rejected' => round(($metricsData->total_rejected ?? 0) / $total * 100, 2),
                 ];
             }
         }
@@ -169,7 +181,7 @@ class ActivityDashboardController extends Controller
     }
 
     /**
-     * Get all village data
+     * Get all village data (target from pj_mappings)
      */
     protected function getVillageData(Activity $activity): array
     {
@@ -182,13 +194,13 @@ class ActivityDashboardController extends Controller
                 'monitoring_data.village_code',
                 'monitoring_data.village_name',
                 'monitoring_data.regency_code',
-                'monitoring_data.target',
                 'monitoring_data.open',
                 'monitoring_data.submitted',
                 'monitoring_data.approved',
                 'monitoring_data.rejected',
                 'pj_mappings.pj_code',
-                'pj_mappings.pj_name'
+                'pj_mappings.pj_name',
+                'pj_mappings.target'
             )
             ->orderBy('monitoring_data.regency_code')
             ->orderBy('monitoring_data.village_name')
@@ -202,7 +214,7 @@ class ActivityDashboardController extends Controller
                     'regency_name' => $this->getRegencyName($item->regency_code),
                     'pj_code' => $item->pj_code,
                     'pj_name' => $item->pj_name,
-                    'target' => $item->target,
+                    'target' => $item->target ?? 0,
                     'open' => $item->open,
                     'submitted' => $item->submitted,
                     'approved' => $item->approved,
