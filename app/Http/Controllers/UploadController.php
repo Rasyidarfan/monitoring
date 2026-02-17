@@ -49,24 +49,26 @@ class UploadController extends Controller
                 throw new \Exception('JSON must be an array of objects');
             }
 
-            $updated = 0;
+            // Clear existing PJ mappings for this activity
+            $activity->pjMappings()->delete();
+
+            $created = 0;
             foreach ($data as $item) {
                 if (!isset($item['Id']) || !isset($item['PJ'])) {
                     continue;
                 }
 
-                // Update monitoring data with PJ info
+                // Create PJ mapping
                 $villageCode = $item['Id'];
                 $pjName = $item['PJ'];
 
-                MonitoringData::where('activity_id', $activity->id)
-                    ->where('village_code', $villageCode)
-                    ->update([
-                        'pj_code' => $villageCode,
-                        'pj_name' => $pjName,
-                    ]);
+                $activity->pjMappings()->create([
+                    'village_code' => $villageCode,
+                    'pj_code' => $villageCode,
+                    'pj_name' => $pjName,
+                ]);
 
-                $updated++;
+                $created++;
             }
 
             // Save filename
@@ -83,11 +85,11 @@ class UploadController extends Controller
                 'original_filename' => $filename,
                 'stored_filename' => $filename,
                 'file_size' => $file->getSize(),
-                'records_imported' => $updated,
+                'records_imported' => $created,
                 'status' => 'completed',
             ]);
 
-            return back()->with('success', "JSON uploaded successfully! Updated {$updated} PJ mappings.");
+            return back()->with('success', "JSON uploaded successfully! Created {$created} PJ mappings.");
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading JSON: ' . $e->getMessage());
@@ -115,11 +117,13 @@ class UploadController extends Controller
                 throw new \Exception('CSV file is empty');
             }
 
+            // Clear all monitoring data for this activity
+            MonitoringData::where('activity_id', $activity->id)->delete();
+
             // Create flexible header mapping
             $headerMap = $csvMapper->mapHeaders($header);
 
             $inserted = 0;
-            $updated = 0;
             $skipped = 0;
 
             while (($row = fgetcsv($handle)) !== false) {
@@ -144,28 +148,20 @@ class UploadController extends Controller
                 // Extract values using flexible mapping
                 $values = $csvMapper->extractValues($row, $headerMap);
 
-                // Update or create
-                $record = MonitoringData::updateOrCreate(
-                    [
-                        'activity_id' => $activity->id,
-                        'village_code' => $villageCode,
-                    ],
-                    [
-                        'village_name' => $villageName,
-                        'regency_code' => $regencyCode,
-                        'target' => $values['target'],
-                        'open' => $values['open'],
-                        'submitted' => $values['submitted'],
-                        'approved' => $values['approved'],
-                        'rejected' => $values['rejected'],
-                    ]
-                );
+                // Create new record
+                MonitoringData::create([
+                    'activity_id' => $activity->id,
+                    'village_code' => $villageCode,
+                    'village_name' => $villageName,
+                    'regency_code' => $regencyCode,
+                    'target' => $values['target'],
+                    'open' => $values['open'],
+                    'submitted' => $values['submitted'],
+                    'approved' => $values['approved'],
+                    'rejected' => $values['rejected'],
+                ]);
 
-                if ($record->wasRecentlyCreated) {
-                    $inserted++;
-                } else {
-                    $updated++;
-                }
+                $inserted++;
             }
 
             fclose($handle);
@@ -181,11 +177,11 @@ class UploadController extends Controller
                 'original_filename' => $filename,
                 'stored_filename' => $filename,
                 'file_size' => $file->getSize(),
-                'records_imported' => $inserted + $updated,
+                'records_imported' => $inserted,
                 'status' => 'completed',
             ]);
 
-            $message = "CSV uploaded successfully! Inserted: {$inserted}, Updated: {$updated}";
+            $message = "CSV uploaded successfully! Imported: {$inserted} records";
             if ($skipped > 0) {
                 $message .= ", Skipped: {$skipped}";
             }
@@ -246,6 +242,9 @@ class UploadController extends Controller
                 throw new \Exception('query_1.csv not found in ZIP file');
             }
 
+            // Clear all monitoring data for this activity
+            MonitoringData::where('activity_id', $activity->id)->delete();
+
             // Process CSV with flexible mapping
             $csvMapper = new CsvMappingService();
             $handle = fopen($csvFile, 'r');
@@ -255,7 +254,6 @@ class UploadController extends Controller
             $headerMap = $csvMapper->mapHeaders($header);
 
             $inserted = 0;
-            $updated = 0;
             $skipped = 0;
 
             while (($row = fgetcsv($handle)) !== false) {
@@ -280,27 +278,19 @@ class UploadController extends Controller
                 // Extract values using flexible mapping
                 $values = $csvMapper->extractValues($row, $headerMap);
 
-                $record = MonitoringData::updateOrCreate(
-                    [
-                        'activity_id' => $activity->id,
-                        'village_code' => $villageCode,
-                    ],
-                    [
-                        'village_name' => $villageName,
-                        'regency_code' => $regencyCode,
-                        'target' => $values['target'],
-                        'open' => $values['open'],
-                        'submitted' => $values['submitted'],
-                        'approved' => $values['approved'],
-                        'rejected' => $values['rejected'],
-                    ]
-                );
+                MonitoringData::create([
+                    'activity_id' => $activity->id,
+                    'village_code' => $villageCode,
+                    'village_name' => $villageName,
+                    'regency_code' => $regencyCode,
+                    'target' => $values['target'],
+                    'open' => $values['open'],
+                    'submitted' => $values['submitted'],
+                    'approved' => $values['approved'],
+                    'rejected' => $values['rejected'],
+                ]);
 
-                if ($record->wasRecentlyCreated) {
-                    $inserted++;
-                } else {
-                    $updated++;
-                }
+                $inserted++;
             }
 
             fclose($handle);
@@ -322,11 +312,11 @@ class UploadController extends Controller
                 'original_filename' => $filename,
                 'stored_filename' => $filename,
                 'file_size' => $file->getSize(),
-                'records_imported' => $inserted + $updated,
+                'records_imported' => $inserted,
                 'status' => 'completed',
             ]);
 
-            $message = "ZIP uploaded successfully! Inserted: {$inserted}, Updated: {$updated}";
+            $message = "ZIP uploaded successfully! Imported: {$inserted} records";
             if ($skipped > 0) {
                 $message .= ", Skipped: {$skipped}";
             }

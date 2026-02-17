@@ -172,10 +172,10 @@
             <strong>💡 Tips:</strong>
         </p>
         <ul class="list-disc list-inside text-blue-900 text-sm mt-2 space-y-1">
-            <li>Upload <strong>JSON</strong> untuk mapping Penanggung Jawab (PJ) ke desa</li>
-            <li>Upload <strong>CSV</strong> untuk data monitoring (Target, Open, Submitted, Approved, Rejected)</li>
-            <li>Upload <strong>ZIP</strong> untuk batch upload CSV (lebih praktis)</li>
-            <li>Data yang sudah ada akan di-update jika village_code sama</li>
+            <li>Upload <strong>JSON</strong> untuk mapping Penanggung Jawab (PJ) ke desa - akan mengganti mapping lama</li>
+            <li>Upload <strong>CSV</strong> untuk data monitoring (Target, Open, Submitted, Approved, Rejected) - akan menghapus semua data lama dan mengimport data baru</li>
+            <li>Upload <strong>ZIP</strong> untuk batch upload CSV (lebih praktis) - akan menghapus semua data lama dan mengimport data baru</li>
+            <li>Mapping PJ disimpan terpisah dan dapat di-update kapan saja tanpa menghapus data monitoring</li>
         </ul>
     </div>
 </div>

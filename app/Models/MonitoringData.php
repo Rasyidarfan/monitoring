@@ -19,8 +19,6 @@ class MonitoringData extends Model
         'submitted',
         'approved',
         'rejected',
-        'pj_code',
-        'pj_name',
     ];
 
     protected function casts(): array
