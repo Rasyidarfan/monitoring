@@ -29,21 +29,6 @@ class SsoAuthController extends Controller
         // Redirect to SSO authorization URL
         $authUrl = $this->ssoService->getAuthorizationUrl($state);
 
-        // DEBUG: Log and display the authorization URL
-        Log::info('SSO Redirect - Authorization URL', [
-            'url' => $authUrl,
-            'state' => $state,
-            'config_authorize_url' => config('sso.authorize_url'),
-        ]);
-
-        dd([
-            'message' => 'DEBUG: About to redirect to SSO',
-            'authUrl' => $authUrl,
-            'state' => $state,
-            'config_authorize_url' => config('sso.authorize_url'),
-            'config_token_url' => config('sso.token_url'),
-        ]);
-
         return redirect()->away($authUrl);
     }
 
@@ -74,6 +59,16 @@ class SsoAuthController extends Controller
             return redirect()->route('login')
                 ->withErrors(['sso' => 'No authorization code received.']);
         }
+
+        // DEBUG: After successful SSO login, before token exchange
+        dd([
+            'message' => 'DEBUG: SSO Login Successful - About to exchange code',
+            'code_prefix' => substr($code, 0, 10),
+            'state' => $requestState,
+            'config_token_url' => config('sso.token_url'),
+            'config_authorize_url' => config('sso.authorize_url'),
+            'full_query_string' => $request->getQueryString(),
+        ]);
 
         // Exchange code for user data
         $ssoUserData = $this->ssoService->getUserFromCode($code);
