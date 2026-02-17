@@ -41,14 +41,15 @@ class SsoAuthController extends Controller
         $sessionState = $request->session()->pull('sso_state');
         $requestState = $request->query('state');
 
-        if ($sessionState && $requestState !== $sessionState) {
-            Log::warning('SSO State Mismatch', [
-                'session' => $sessionState,
-                'request' => $requestState,
+        if (!$sessionState || !$requestState || $requestState !== $sessionState) {
+            Log::warning('SSO State Validation Failed', [
+                'has_session_state' => !empty($sessionState),
+                'has_request_state' => !empty($requestState),
+                'states_match' => $sessionState === $requestState,
             ]);
 
             return redirect()->route('login')
-                ->withErrors(['sso' => 'Invalid state parameter. Please try again.']);
+                ->withErrors(['sso' => 'Security validation failed. Please try again.']);
         }
 
         // Get authorization code

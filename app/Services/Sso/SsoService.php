@@ -54,17 +54,30 @@ class SsoService
                 if ($data['status'] === 'success' && isset($data['data'])) {
                     return $data['data'];
                 }
+
+                // Handle API-level errors (INVALID_GRANT, INVALID_CLIENT_SECRET, etc.)
+                if (isset($data['error'])) {
+                    Log::error('SSO Token Exchange - API Error', [
+                        'error_code' => $data['error'],
+                        'message' => $data['message'] ?? 'Unknown error',
+                    ]);
+                    return null;
+                }
             }
 
+            // Handle HTTP errors
+            $responseBody = $response->json() ?? [];
             Log::error('SSO Token Exchange Failed', [
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'error' => $responseBody['error'] ?? 'Unknown',
+                'message' => $responseBody['message'] ?? $response->body(),
             ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('SSO Token Exchange Error', [
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
             ]);
             return null;
         }
@@ -82,13 +95,31 @@ class SsoService
             );
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                if (!is_array($data)) {
+                    Log::error('SSO Get Employees - Invalid Response Format', [
+                        'response_type' => gettype($data),
+                    ]);
+                    return null;
+                }
+
+                return $data;
             }
+
+            // Handle API errors (rate limiting, invalid secret, etc.)
+            $responseBody = $response->json() ?? [];
+            Log::error('SSO Get Employees Failed', [
+                'status' => $response->status(),
+                'error' => $responseBody['error'] ?? 'Unknown',
+                'message' => $responseBody['message'] ?? 'API request failed',
+            ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('SSO Get Employees Error', [
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
             ]);
             return null;
         }
@@ -130,13 +161,34 @@ class SsoService
             );
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                if (!is_array($data)) {
+                    Log::error('SSO Get Employees By Role - Invalid Response Format', [
+                        'response_type' => gettype($data),
+                        'role' => $role,
+                    ]);
+                    return null;
+                }
+
+                return $data;
             }
+
+            // Handle API errors (ROLE_NOT_FOUND, invalid secret, rate limiting, etc.)
+            $responseBody = $response->json() ?? [];
+            Log::error('SSO Get Employees By Role Failed', [
+                'status' => $response->status(),
+                'error' => $responseBody['error'] ?? 'Unknown',
+                'message' => $responseBody['message'] ?? 'API request failed',
+                'role' => $role,
+            ]);
 
             return null;
         } catch (\Exception $e) {
             Log::error('SSO Get Employees By Role Error', [
                 'message' => $e->getMessage(),
+                'exception' => get_class($e),
+                'role' => $role,
             ]);
             return null;
         }

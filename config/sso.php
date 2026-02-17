@@ -11,15 +11,15 @@ return [
     |
     */
 
-    'base_url' => env('SSO_BASE_URL', 'https://sso.bps9702.com/v1/'),
-    'data_url' => env('SSO_DATA_URL', 'https://sso.bps9702.com/api/v1/'),
+    'base_url' => env('SSO_BASE_URL', 'https://sso.bps9702.com/sso/'),
+    'data_url' => env('SSO_DATA_URL', 'https://sso.bps9702.com/api/'),
 
     'client_id' => env('SSO_CLIENT_ID'),
     'client_secret' => env('SSO_CLIENT_SECRET'),
 
     'login_url' => env('SSO_LOGIN_URL', 'https://sso.bps9702.com/login'),
-    'authorize_url' => env('SSO_AUTHORIZE_URL', 'https://sso.bps9702.com/api/v1/authorize'),
-    'token_url' => env('SSO_TOKEN_URL', 'https://sso.bps9702.com/api/v1/token'),
+    'authorize_url' => env('SSO_AUTHORIZE_URL', 'https://sso.bps9702.com/sso/authorize'),
+    'token_url' => env('SSO_TOKEN_URL', 'https://sso.bps9702.com/sso/token'),
     'callback_url' => env('SSO_CALLBACK_URL', 'http://localhost:8000/auth/callback'),
 
     /*
@@ -29,9 +29,9 @@ return [
     */
 
     'endpoints' => [
-        'employees' => 'data/employees',
-        'roles' => 'data/roles',
-        'employees_by_role' => 'data/employees/by-role',
+        'employees' => 'employees',
+        'roles' => 'roles',
+        'employees_by_role' => 'employees/by-role',
     ],
 
     /*
