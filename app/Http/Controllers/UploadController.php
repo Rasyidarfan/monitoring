@@ -38,6 +38,22 @@ class UploadController extends Controller
     }
 
     /**
+     * Get old monitoring data metrics for reconciliation
+     */
+    private function getOldMetrics(Activity $activity): array
+    {
+        $metrics = MonitoringData::where('activity_id', $activity->id)
+            ->get(['village_code', 'open', 'submitted', 'approved', 'rejected'])
+            ->toArray();
+
+        $result = [];
+        foreach ($metrics as $metric) {
+            $result[$metric['village_code']] = $metric;
+        }
+        return $result;
+    }
+
+    /**
      * Upload JSON file (PJ Mapping) - SYNC Mode
      */
     public function uploadJson(Request $request, Activity $activity): RedirectResponse
@@ -162,6 +178,7 @@ class UploadController extends Controller
     /**
      * Upload CSV file (Monitoring Data) - SYNC Mode with MAX Logic
      * Keep existing pj_mappings, update desa_nama and target (if new target is larger)
+     * Apply MAX logic to monitoring_data metrics (open, submitted, approved, rejected)
      */
     public function uploadCsv(Request $request, Activity $activity): RedirectResponse
     {
@@ -180,6 +197,9 @@ class UploadController extends Controller
             if (!$header) {
                 throw new \Exception('CSV file is empty');
             }
+
+            // Get old metrics BEFORE clearing for reconciliation
+            $oldMetrics = $this->getOldMetrics($activity);
 
             // SYNC Mode: Clear monitoring data, keep pj_mappings
             MonitoringData::where('activity_id', $activity->id)->delete();
@@ -245,16 +265,25 @@ class UploadController extends Controller
                     $inserted++;
                 }
 
-                // Insert monitoring data (without target)
+                // Apply MAX logic to metrics (use largest value from old data vs CSV)
+                $oldMetric = $oldMetrics[$villageCode] ?? null;
+                $finalMetrics = [
+                    'open' => $oldMetric ? max($oldMetric['open'] ?? 0, $values['open']) : $values['open'],
+                    'submitted' => $oldMetric ? max($oldMetric['submitted'] ?? 0, $values['submitted']) : $values['submitted'],
+                    'approved' => $oldMetric ? max($oldMetric['approved'] ?? 0, $values['approved']) : $values['approved'],
+                    'rejected' => $oldMetric ? max($oldMetric['rejected'] ?? 0, $values['rejected']) : $values['rejected'],
+                ];
+
+                // Insert monitoring data (without target) with reconciled metrics
                 MonitoringData::create([
                     'activity_id' => $activity->id,
                     'village_code' => $villageCode,
                     'village_name' => $villageName,
                     'regency_code' => $regencyCode,
-                    'open' => $values['open'],
-                    'submitted' => $values['submitted'],
-                    'approved' => $values['approved'],
-                    'rejected' => $values['rejected'],
+                    'open' => $finalMetrics['open'],
+                    'submitted' => $finalMetrics['submitted'],
+                    'approved' => $finalMetrics['approved'],
+                    'rejected' => $finalMetrics['rejected'],
                 ]);
             }
 
@@ -288,7 +317,8 @@ class UploadController extends Controller
     }
 
     /**
-     * Upload ZIP file - REPLACE Mode with MAX Logic
+     * Upload ZIP file - SYNC Mode with MAX Logic
+     * Apply MAX logic to both target and monitoring_data metrics
      */
     public function uploadZip(Request $request, Activity $activity): RedirectResponse
     {
@@ -335,6 +365,9 @@ class UploadController extends Controller
                 $this->deleteDirectory($extractPath);
                 throw new \Exception('query_1.csv not found in ZIP file');
             }
+
+            // Get old metrics BEFORE clearing for reconciliation
+            $oldMetrics = $this->getOldMetrics($activity);
 
             // SYNC Mode: Clear monitoring data, keep pj_mappings
             MonitoringData::where('activity_id', $activity->id)->delete();
@@ -405,16 +438,25 @@ class UploadController extends Controller
                     $inserted++;
                 }
 
-                // Insert monitoring data (without target)
+                // Apply MAX logic to metrics (use largest value from old data vs ZIP)
+                $oldMetric = $oldMetrics[$villageCode] ?? null;
+                $finalMetrics = [
+                    'open' => $oldMetric ? max($oldMetric['open'] ?? 0, $values['open']) : $values['open'],
+                    'submitted' => $oldMetric ? max($oldMetric['submitted'] ?? 0, $values['submitted']) : $values['submitted'],
+                    'approved' => $oldMetric ? max($oldMetric['approved'] ?? 0, $values['approved']) : $values['approved'],
+                    'rejected' => $oldMetric ? max($oldMetric['rejected'] ?? 0, $values['rejected']) : $values['rejected'],
+                ];
+
+                // Insert monitoring data (without target) with reconciled metrics
                 MonitoringData::create([
                     'activity_id' => $activity->id,
                     'village_code' => $villageCode,
                     'village_name' => $villageName,
                     'regency_code' => $regencyCode,
-                    'open' => $values['open'],
-                    'submitted' => $values['submitted'],
-                    'approved' => $values['approved'],
-                    'rejected' => $values['rejected'],
+                    'open' => $finalMetrics['open'],
+                    'submitted' => $finalMetrics['submitted'],
+                    'approved' => $finalMetrics['approved'],
+                    'rejected' => $finalMetrics['rejected'],
                 ]);
             }
 
