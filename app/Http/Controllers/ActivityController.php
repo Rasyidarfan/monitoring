@@ -17,11 +17,16 @@ class ActivityController extends Controller
     {
         $activities = Activity::orderBy('display_name')->get();
 
-        // Add metrics to each activity
+        // Add metrics to each activity (target from pj_mappings, metrics from monitoring_data)
         $activities->each(function ($activity) {
-            $metrics = $activity->monitoringData()
+            // Target from pj_mappings
+            $targetData = $activity->pjMappings()
+                ->selectRaw('SUM(target) as total_target')
+                ->first();
+
+            // Metrics from monitoring_data
+            $metricsData = $activity->monitoringData()
                 ->selectRaw('
-                    SUM(target) as total_target,
                     SUM(open) as total_open,
                     SUM(submitted) as total_submitted,
                     SUM(approved) as total_approved,
@@ -30,11 +35,11 @@ class ActivityController extends Controller
                 ')
                 ->first();
 
-            $activity->total_target = $metrics->total_target ?? 0;
-            $activity->total_approved = $metrics->total_approved ?? 0;
-            $activity->village_count = $metrics->village_count ?? 0;
+            $activity->total_target = $targetData->total_target ?? 0;
+            $activity->total_approved = $metricsData->total_approved ?? 0;
+            $activity->village_count = $metricsData->village_count ?? 0;
             $activity->percentage = $activity->total_target > 0
-                ? round(($activity->total_approved / $activity->total_target) * 100, 2)
+                ? round(($metricsData->total_approved ?? 0) / $activity->total_target * 100, 2)
                 : 0;
         });
 
