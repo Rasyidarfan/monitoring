@@ -78,7 +78,7 @@ class ActivityDashboardController extends Controller
      */
     protected function getRegencyData(Activity $activity): array
     {
-        $data = MonitoringData::where('activity_id', $activity->id)
+        $data = MonitoringData::where('monitoring_data.activity_id', $activity->id)
             ->leftJoin('pj_mappings', function($join) use ($activity) {
                 $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
                      ->where('pj_mappings.activity_id', $activity->id);
@@ -143,8 +143,8 @@ class ActivityDashboardController extends Controller
             $totalTarget = $pjMappingData->sum('target');
 
             // Get metrics for villages under this PJ
-            $metricsData = MonitoringData::where('activity_id', $activity->id)
-                ->whereIn('village_code', $villageCodes)
+            $metricsData = MonitoringData::where('monitoring_data.activity_id', $activity->id)
+                ->whereIn('monitoring_data.village_code', $villageCodes)
                 ->selectRaw('
                     SUM(open) as total_open,
                     SUM(submitted) as total_submitted,

@@ -76,7 +76,7 @@ class DashboardController extends Controller
             return [];
         }
 
-        $data = MonitoringData::where('activity_id', $activity->id)
+        $data = MonitoringData::where('monitoring_data.activity_id', $activity->id)
             ->leftJoin('pj_mappings', function($join) use ($activity) {
                 $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
                      ->where('pj_mappings.activity_id', $activity->id);
