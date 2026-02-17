@@ -48,11 +48,11 @@ class Activity extends Model
     }
 
     /**
-     * Get total target for this activity
+     * Get total target for this activity (from pj_mappings)
      */
     public function getTotalTargetAttribute(): int
     {
-        return $this->monitoringData()->sum('target');
+        return $this->pjMappings()->sum('target');
     }
 
     /**

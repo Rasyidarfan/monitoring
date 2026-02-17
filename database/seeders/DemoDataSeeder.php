@@ -106,24 +106,26 @@ class DemoDataSeeder extends Seeder
     private function seedVillagesForActivity(Activity $activity, array $villages): void
     {
         foreach ($villages as $village) {
+            // Create monitoring data (without target)
             MonitoringData::create([
                 'activity_id' => $activity->id,
                 'village_code' => $village[0],
                 'village_name' => $village[1],
                 'regency_code' => $village[2],
-                'target' => $village[3],
                 'open' => $village[4],
                 'submitted' => $village[5],
                 'approved' => $village[6],
                 'rejected' => $village[7],
             ]);
 
-            // Create PJ mapping separately
+            // Create PJ mapping with target and desa_nama
             if (isset($village[8]) && isset($village[9])) {
                 $activity->pjMappings()->create([
                     'village_code' => $village[0],
+                    'desa_nama' => $village[1],
                     'pj_code' => $village[8],
                     'pj_name' => $village[9],
+                    'target' => $village[3], // target now in pj_mappings
                 ]);
             }
         }

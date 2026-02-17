@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\MonitoringData;
+use App\Models\PjMapping;
 use App\Services\CsvMappingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -27,7 +28,17 @@ class UploadController extends Controller
     }
 
     /**
-     * Upload JSON file (PJ Mapping)
+     * Get old target values for reconciliation
+     */
+    private function getOldTargets(Activity $activity): array
+    {
+        return $activity->pjMappings()
+            ->pluck('target', 'village_code')
+            ->toArray();
+    }
+
+    /**
+     * Upload JSON file (PJ Mapping) - SYNC Mode
      */
     public function uploadJson(Request $request, Activity $activity): RedirectResponse
     {
@@ -49,13 +60,19 @@ class UploadController extends Controller
                 throw new \Exception('JSON must be an array of objects');
             }
 
-            // Clear existing PJ mappings for this activity
-            $activity->pjMappings()->delete();
+            // Get village names from monitoring_data for desa_nama
+            $desaNames = MonitoringData::where('activity_id', $activity->id)
+                ->pluck('village_name', 'village_code')
+                ->toArray();
 
             $created = 0;
+            $updated = 0;
+            $deleted = 0;
             $skipped = 0;
             $processedCodes = [];
+            $jsonVillageCodes = [];
 
+            // SYNC Mode: Process JSON entries (INSERT or UPDATE)
             foreach ($data as $item) {
                 if (!isset($item['Id']) || !isset($item['PJ'])) {
                     $skipped++;
@@ -72,14 +89,43 @@ class UploadController extends Controller
                 }
 
                 $processedCodes[] = $villageCode;
+                $jsonVillageCodes[] = $villageCode;
 
-                $activity->pjMappings()->create([
-                    'village_code' => $villageCode,
-                    'pj_code' => $villageCode,
-                    'pj_name' => $pjName,
-                ]);
+                $desaNama = $desaNames[$villageCode] ?? null;
 
-                $created++;
+                // Check if already exists
+                $existing = $activity->pjMappings()
+                    ->where('village_code', $villageCode)
+                    ->first();
+
+                if ($existing) {
+                    // UPDATE: only update pj_name and desa_nama, preserve target
+                    $existing->update([
+                        'pj_name' => $pjName,
+                        'desa_nama' => $desaNama,
+                    ]);
+                    $updated++;
+                } else {
+                    // INSERT: new entry with target=0
+                    $activity->pjMappings()->create([
+                        'village_code' => $villageCode,
+                        'desa_nama' => $desaNama,
+                        'pj_code' => $villageCode,
+                        'pj_name' => $pjName,
+                        'target' => 0,
+                    ]);
+                    $created++;
+                }
+            }
+
+            // DELETE: entries in DB but not in JSON file
+            $toDelete = $activity->pjMappings()
+                ->whereNotIn('village_code', $jsonVillageCodes)
+                ->get();
+
+            foreach ($toDelete as $pj) {
+                $pj->delete();
+                $deleted++;
             }
 
             // Save filename
@@ -96,14 +142,15 @@ class UploadController extends Controller
                 'original_filename' => $filename,
                 'stored_filename' => $filename,
                 'file_size' => $file->getSize(),
-                'records_imported' => $created,
+                'records_imported' => $created + $updated,
                 'status' => 'completed',
             ]);
 
-            $message = "JSON uploaded successfully! Created {$created} PJ mappings.";
-            if ($skipped > 0) {
-                $message .= " Skipped {$skipped} (missing fields or duplicates).";
-            }
+            $message = "JSON uploaded successfully!";
+            if ($created > 0) $message .= " Created {$created}.";
+            if ($updated > 0) $message .= " Updated {$updated}.";
+            if ($deleted > 0) $message .= " Deleted {$deleted}.";
+            if ($skipped > 0) $message .= " Skipped {$skipped}.";
 
             return back()->with('success', $message);
 
@@ -113,7 +160,7 @@ class UploadController extends Controller
     }
 
     /**
-     * Upload CSV file (Monitoring Data)
+     * Upload CSV file (Monitoring Data) - REPLACE Mode with MAX Logic
      */
     public function uploadCsv(Request $request, Activity $activity): RedirectResponse
     {
@@ -125,6 +172,9 @@ class UploadController extends Controller
             $file = $request->file('csv_file');
             $csvMapper = new CsvMappingService();
 
+            // Get old targets for MAX logic reconciliation
+            $oldTargets = $this->getOldTargets($activity);
+
             $handle = fopen($file->getRealPath(), 'r');
 
             // Read header
@@ -133,14 +183,16 @@ class UploadController extends Controller
                 throw new \Exception('CSV file is empty');
             }
 
-            // Clear all monitoring data for this activity
+            // REPLACE Mode: Clear all old data
             MonitoringData::where('activity_id', $activity->id)->delete();
+            $activity->pjMappings()->delete();
 
             // Create flexible header mapping
             $headerMap = $csvMapper->mapHeaders($header);
 
             $inserted = 0;
             $skipped = 0;
+            $newTargets = [];
 
             while (($row = fgetcsv($handle)) !== false) {
                 // Find Desa column (first column should be Desa)
@@ -164,17 +216,36 @@ class UploadController extends Controller
                 // Extract values using flexible mapping
                 $values = $csvMapper->extractValues($row, $headerMap);
 
-                // Create new record
+                // Skip if target = 0 (assignment not assigned)
+                if ($values['target'] == 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Apply MAX logic: use largest target value
+                $oldTarget = $oldTargets[$villageCode] ?? 0;
+                $finalTarget = max($oldTarget, $values['target']);
+                $newTargets[$villageCode] = $finalTarget;
+
+                // Insert monitoring data (without target)
                 MonitoringData::create([
                     'activity_id' => $activity->id,
                     'village_code' => $villageCode,
                     'village_name' => $villageName,
                     'regency_code' => $regencyCode,
-                    'target' => $values['target'],
                     'open' => $values['open'],
                     'submitted' => $values['submitted'],
                     'approved' => $values['approved'],
                     'rejected' => $values['rejected'],
+                ]);
+
+                // Insert pj mapping with reconciled target
+                $activity->pjMappings()->create([
+                    'village_code' => $villageCode,
+                    'desa_nama' => $villageName,
+                    'pj_code' => null,
+                    'pj_name' => null,
+                    'target' => $finalTarget,
                 ]);
 
                 $inserted++;
@@ -199,7 +270,7 @@ class UploadController extends Controller
 
             $message = "CSV uploaded successfully! Imported: {$inserted} records";
             if ($skipped > 0) {
-                $message .= ", Skipped: {$skipped}";
+                $message .= ", Skipped: {$skipped} (target=0 or invalid)";
             }
 
             return back()->with('success', $message);
@@ -210,7 +281,7 @@ class UploadController extends Controller
     }
 
     /**
-     * Upload ZIP file
+     * Upload ZIP file - REPLACE Mode with MAX Logic
      */
     public function uploadZip(Request $request, Activity $activity): RedirectResponse
     {
@@ -258,8 +329,12 @@ class UploadController extends Controller
                 throw new \Exception('query_1.csv not found in ZIP file');
             }
 
-            // Clear all monitoring data for this activity
+            // Get old targets for MAX logic reconciliation
+            $oldTargets = $this->getOldTargets($activity);
+
+            // REPLACE Mode: Clear all old data
             MonitoringData::where('activity_id', $activity->id)->delete();
+            $activity->pjMappings()->delete();
 
             // Process CSV with flexible mapping
             $csvMapper = new CsvMappingService();
@@ -294,16 +369,35 @@ class UploadController extends Controller
                 // Extract values using flexible mapping
                 $values = $csvMapper->extractValues($row, $headerMap);
 
+                // Skip if target = 0 (assignment not assigned)
+                if ($values['target'] == 0) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Apply MAX logic: use largest target value
+                $oldTarget = $oldTargets[$villageCode] ?? 0;
+                $finalTarget = max($oldTarget, $values['target']);
+
+                // Insert monitoring data (without target)
                 MonitoringData::create([
                     'activity_id' => $activity->id,
                     'village_code' => $villageCode,
                     'village_name' => $villageName,
                     'regency_code' => $regencyCode,
-                    'target' => $values['target'],
                     'open' => $values['open'],
                     'submitted' => $values['submitted'],
                     'approved' => $values['approved'],
                     'rejected' => $values['rejected'],
+                ]);
+
+                // Insert pj mapping with reconciled target
+                $activity->pjMappings()->create([
+                    'village_code' => $villageCode,
+                    'desa_nama' => $villageName,
+                    'pj_code' => null,
+                    'pj_name' => null,
+                    'target' => $finalTarget,
                 ]);
 
                 $inserted++;
@@ -334,7 +428,7 @@ class UploadController extends Controller
 
             $message = "ZIP uploaded successfully! Imported: {$inserted} records";
             if ($skipped > 0) {
-                $message .= ", Skipped: {$skipped}";
+                $message .= ", Skipped: {$skipped} (target=0 or invalid)";
             }
 
             return back()->with('success', $message);

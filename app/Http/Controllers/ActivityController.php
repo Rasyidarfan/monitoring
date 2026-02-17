@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Models\PjMapping;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -70,7 +71,8 @@ class ActivityController extends Controller
      */
     public function edit(Activity $activity): View
     {
-        return view('admin.activities.edit', compact('activity'));
+        $pjMappings = $activity->pjMappings()->get();
+        return view('admin.activities.edit', compact('activity', 'pjMappings'));
     }
 
     /**
@@ -100,5 +102,26 @@ class ActivityController extends Controller
 
         return redirect()->route('activities.index')
             ->with('success', "Kegiatan '{$name}' berhasil dihapus!");
+    }
+
+    /**
+     * Update PJ Mapping data
+     */
+    public function updatePjMapping(Request $request, Activity $activity, PjMapping $pjMapping): RedirectResponse
+    {
+        // Verify that this PJ mapping belongs to this activity
+        if ($pjMapping->activity_id !== $activity->id) {
+            return back()->with('error', 'PJ Mapping tidak ditemukan!');
+        }
+
+        $validated = $request->validate([
+            'pj_name' => 'nullable|string|max:255',
+            'desa_nama' => 'nullable|string|max:255',
+            'target' => 'required|integer|min:0',
+        ]);
+
+        $pjMapping->update($validated);
+
+        return back()->with('success', 'PJ Mapping berhasil diupdate!');
     }
 }

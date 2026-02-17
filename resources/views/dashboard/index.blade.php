@@ -48,7 +48,44 @@
             <h3 class="text-xl font-bold text-gray-800 mb-4">Data Per Kabupaten</h3>
 
             @if(count($regencyData) > 0)
-                <div class="overflow-x-auto">
+                <!-- Mobile: Card view (hidden di md+) -->
+                <div class="block md:hidden space-y-3 mb-6">
+                    @foreach($regencyData as $regency)
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="font-semibold text-gray-900">{{ $regency['regency_name'] }}</div>
+                            <div class="text-right">
+                                <div class="text-xs text-gray-500">Target</div>
+                                <div class="font-bold text-gray-900">{{ number_format($regency['total_target']) }}</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+                            <div class="bg-gray-100 rounded p-2">
+                                <div class="text-gray-500">Open</div>
+                                <div class="font-semibold text-gray-700">{{ number_format($regency['total_open']) }}</div>
+                            </div>
+                            <div class="bg-yellow-50 rounded p-2">
+                                <div class="text-gray-500">Submitted</div>
+                                <div class="font-semibold text-yellow-700">{{ number_format($regency['total_submitted']) }}</div>
+                            </div>
+                            <div class="bg-green-50 rounded p-2">
+                                <div class="text-gray-500">Approved</div>
+                                <div class="font-semibold text-green-700">{{ number_format($regency['total_approved']) }}</div>
+                            </div>
+                            <div class="bg-red-50 rounded p-2">
+                                <div class="text-gray-500">Rejected</div>
+                                <div class="font-semibold text-red-700">{{ number_format($regency['total_rejected']) }}</div>
+                            </div>
+                        </div>
+                        <div class="mt-2 text-right text-xs font-bold text-blue-600">
+                            Approved: {{ $regency['pct_approved'] }}%
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+
+                <!-- Desktop: Tabel biasa (hidden di mobile, tampil di md+) -->
+                <div class="hidden md:block overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
@@ -76,10 +113,13 @@
                         </tbody>
                     </table>
                 </div>
+                </div>
 
                 <!-- Chart -->
                 <div class="mt-8">
-                    <canvas id="regencyChart" height="100"></canvas>
+                    <div class="relative h-48 sm:h-56 md:h-64">
+                        <canvas id="regencyChart"></canvas>
+                    </div>
                 </div>
 
                 <script>
@@ -115,6 +155,7 @@
                         },
                         options: {
                             responsive: true,
+                            maintainAspectRatio: false,
                             scales: {
                                 x: {
                                     stacked: true,

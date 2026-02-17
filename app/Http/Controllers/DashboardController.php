@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\MonitoringData;
+use App\Models\PjMapping;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -28,7 +29,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get dashboard metrics
+     * Get dashboard metrics (target from pj_mappings, metrics from monitoring_data)
      */
     protected function getDashboardMetrics(?Activity $activity): array
     {
@@ -42,9 +43,14 @@ class DashboardController extends Controller
             ];
         }
 
-        $totals = MonitoringData::where('activity_id', $activity->id)
+        // Target from pj_mappings
+        $targetData = \App\Models\PjMapping::where('activity_id', $activity->id)
+            ->selectRaw('SUM(target) as total_target')
+            ->first();
+
+        // Metrics from monitoring_data
+        $metricsData = MonitoringData::where('activity_id', $activity->id)
             ->selectRaw('
-                SUM(target) as total_target,
                 SUM(open) as total_open,
                 SUM(submitted) as total_submitted,
                 SUM(approved) as total_approved,
@@ -53,16 +59,16 @@ class DashboardController extends Controller
             ->first();
 
         return [
-            'total_target' => $totals->total_target ?? 0,
-            'total_open' => $totals->total_open ?? 0,
-            'total_submitted' => $totals->total_submitted ?? 0,
-            'total_approved' => $totals->total_approved ?? 0,
-            'total_rejected' => $totals->total_rejected ?? 0,
+            'total_target' => $targetData->total_target ?? 0,
+            'total_open' => $metricsData->total_open ?? 0,
+            'total_submitted' => $metricsData->total_submitted ?? 0,
+            'total_approved' => $metricsData->total_approved ?? 0,
+            'total_rejected' => $metricsData->total_rejected ?? 0,
         ];
     }
 
     /**
-     * Get data per regency
+     * Get data per regency (target from pj_mappings via monitoring_data)
      */
     protected function getRegencyData(?Activity $activity): array
     {
@@ -71,15 +77,19 @@ class DashboardController extends Controller
         }
 
         $data = MonitoringData::where('activity_id', $activity->id)
+            ->leftJoin('pj_mappings', function($join) use ($activity) {
+                $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
+                     ->where('pj_mappings.activity_id', $activity->id);
+            })
             ->selectRaw('
-                regency_code,
-                SUM(target) as total_target,
-                SUM(open) as total_open,
-                SUM(submitted) as total_submitted,
-                SUM(approved) as total_approved,
-                SUM(rejected) as total_rejected
+                monitoring_data.regency_code,
+                COALESCE(SUM(pj_mappings.target), 0) as total_target,
+                SUM(monitoring_data.open) as total_open,
+                SUM(monitoring_data.submitted) as total_submitted,
+                SUM(monitoring_data.approved) as total_approved,
+                SUM(monitoring_data.rejected) as total_rejected
             ')
-            ->groupBy('regency_code')
+            ->groupBy('monitoring_data.regency_code')
             ->get()
             ->map(function ($item) {
                 $total = $item->total_target > 0 ? $item->total_target : 1;
@@ -117,16 +127,21 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get all activities with aggregated metrics
+     * Get all activities with aggregated metrics (target from pj_mappings)
      */
     protected function getAllActivitiesWithMetrics()
     {
         $activities = Activity::orderBy('display_name')->get();
 
         return $activities->map(function ($activity) {
-            $metrics = MonitoringData::where('activity_id', $activity->id)
+            // Target from pj_mappings
+            $targetData = \App\Models\PjMapping::where('activity_id', $activity->id)
+                ->selectRaw('SUM(target) as total_target')
+                ->first();
+
+            // Metrics from monitoring_data
+            $metricsData = MonitoringData::where('activity_id', $activity->id)
                 ->selectRaw('
-                    SUM(target) as total_target,
                     SUM(open) as total_open,
                     SUM(submitted) as total_submitted,
                     SUM(approved) as total_approved,
@@ -134,11 +149,11 @@ class DashboardController extends Controller
                 ')
                 ->first();
 
-            $activity->total_target = $metrics->total_target ?? 0;
-            $activity->total_open = $metrics->total_open ?? 0;
-            $activity->total_submitted = $metrics->total_submitted ?? 0;
-            $activity->total_approved = $metrics->total_approved ?? 0;
-            $activity->total_rejected = $metrics->total_rejected ?? 0;
+            $activity->total_target = $targetData->total_target ?? 0;
+            $activity->total_open = $metricsData->total_open ?? 0;
+            $activity->total_submitted = $metricsData->total_submitted ?? 0;
+            $activity->total_approved = $metricsData->total_approved ?? 0;
+            $activity->total_rejected = $metricsData->total_rejected ?? 0;
 
             // Calculate percentage
             $activity->percentage = $activity->total_target > 0

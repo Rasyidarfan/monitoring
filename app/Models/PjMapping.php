@@ -10,8 +10,10 @@ class PjMapping extends Model
     protected $fillable = [
         'activity_id',
         'village_code',
+        'desa_nama',
         'pj_code',
         'pj_name',
+        'target',
     ];
 
     /**

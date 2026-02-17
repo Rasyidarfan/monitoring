@@ -17,7 +17,92 @@
     @else
         <!-- Summary Table -->
         <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="overflow-x-auto">
+            <!-- Mobile: Card layout (hidden di md+) -->
+            <div class="block md:hidden p-4 space-y-3">
+                @foreach($activities as $activity)
+                <div class="border border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition cursor-pointer"
+                    onclick="window.location='/kegiatan/{{ $activity->name }}'">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <div class="font-semibold text-gray-900 text-sm">{{ $activity->display_name }}</div>
+                            @if($activity->last_data_upload_at)
+                                <div class="text-xs text-gray-500 mt-0.5">Last: {{ $activity->last_data_upload_at->format('d M H:i') }}</div>
+                            @endif
+                        </div>
+                        <a href="/kegiatan/{{ $activity->name }}" class="text-blue-600 text-sm font-medium ml-2">→</a>
+                    </div>
+
+                    <!-- Progress bar -->
+                    @php
+                        $total = $activity->total_target > 0 ? $activity->total_target : 1;
+                        $pctOpen = round(($activity->total_open / $total) * 100);
+                        $pctSubmitted = round(($activity->total_submitted / $total) * 100);
+                        $pctApproved = round(($activity->total_approved / $total) * 100);
+                        $pctRejected = round(($activity->total_rejected / $total) * 100);
+                    @endphp
+                    <div class="flex h-5 rounded overflow-hidden mb-2 text-xs font-semibold text-white bg-gray-200">
+                        @if($pctOpen > 0)
+                            <div style="width: {{ $pctOpen }}%" class="bg-amber-300" title="Open: {{ $activity->total_open }}"></div>
+                        @endif
+                        @if($pctSubmitted > 0)
+                            <div style="width: {{ $pctSubmitted }}%" class="bg-yellow-500" title="Submitted: {{ $activity->total_submitted }}"></div>
+                        @endif
+                        @if($pctApproved > 0)
+                            <div style="width: {{ $pctApproved }}%" class="bg-green-500" title="Approved: {{ $activity->total_approved }}"></div>
+                        @endif
+                        @if($pctRejected > 0)
+                            <div style="width: {{ $pctRejected }}%" class="bg-red-500" title="Rejected: {{ $activity->total_rejected }}"></div>
+                        @endif
+                    </div>
+
+                    <!-- Counts: Grid 4 kolom -->
+                    <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                        <div class="bg-gray-100 rounded p-1.5">
+                            <div class="text-gray-500 text-2xs leading-tight">Open</div>
+                            <div class="font-bold text-gray-700">{{ $activity->total_open }}</div>
+                        </div>
+                        <div class="bg-yellow-50 rounded p-1.5">
+                            <div class="text-gray-500 text-2xs leading-tight">Subm</div>
+                            <div class="font-bold text-yellow-600">{{ $activity->total_submitted }}</div>
+                        </div>
+                        <div class="bg-green-50 rounded p-1.5">
+                            <div class="text-gray-500 text-2xs leading-tight">Appr</div>
+                            <div class="font-bold text-green-600">{{ $activity->total_approved }}</div>
+                        </div>
+                        <div class="bg-red-50 rounded p-1.5">
+                            <div class="text-gray-500 text-2xs leading-tight">Rej</div>
+                            <div class="font-bold text-red-600">{{ $activity->total_rejected }}</div>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+
+                <!-- Total Summary Card -->
+                <div class="border border-blue-200 rounded-lg p-3 bg-blue-50">
+                    <div class="font-semibold text-blue-900 text-sm mb-2">TOTAL SEMUA KEGIATAN</div>
+                    <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                        <div>
+                            <div class="text-gray-600 text-2xs">Target</div>
+                            <div class="font-bold text-blue-700">{{ number_format($grandTotals['total_target']) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600 text-2xs">Open</div>
+                            <div class="font-bold text-gray-700">{{ number_format($grandTotals['total_open']) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600 text-2xs">Appr</div>
+                            <div class="font-bold text-green-600">{{ number_format($grandTotals['total_approved']) }}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-600 text-2xs">Rej</div>
+                            <div class="font-bold text-red-600">{{ number_format($grandTotals['total_rejected']) }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Desktop: Tabel biasa (hidden di mobile) -->
+            <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
@@ -75,12 +160,15 @@
                     </tfoot>
                 </table>
             </div>
+            </div>
         </div>
 
         <!-- Comparison Chart -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Perbandingan Progress Kegiatan</h3>
-            <canvas id="comparisonChart" height="80"></canvas>
+            <div class="relative h-48 sm:h-56 md:h-64">
+                <canvas id="comparisonChart"></canvas>
+            </div>
         </div>
 
         <script>
@@ -107,12 +195,12 @@
                         {
                             label: 'Open',
                             data: chartData.map(d => d.open),
-                            backgroundColor: '#ebd28d',
+                            backgroundColor: 'rgba(252, 211, 77, 0.9)',
                         },
                         {
                             label: 'Submitted',
                             data: chartData.map(d => d.submitted),
-                            backgroundColor: '#383beb',
+                            backgroundColor: 'rgba(59, 130, 246, 0.9)',
                         },
                         {
                             label: 'Approved',
@@ -128,6 +216,7 @@
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
                             stacked: true,

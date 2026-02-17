@@ -14,7 +14,6 @@ class MonitoringData extends Model
         'village_code',
         'village_name',
         'regency_code',
-        'target',
         'open',
         'submitted',
         'approved',
@@ -24,7 +23,6 @@ class MonitoringData extends Model
     protected function casts(): array
     {
         return [
-            'target' => 'integer',
             'open' => 'integer',
             'submitted' => 'integer',
             'approved' => 'integer',
@@ -41,26 +39,37 @@ class MonitoringData extends Model
     }
 
     /**
-     * Get completion percentage
+     * Get completion percentage (from pj_mappings target)
      */
     public function getCompletionPercentageAttribute(): float
     {
-        if ($this->target == 0) {
+        $target = $this->pjMapping?->target ?? 0;
+        if ($target == 0) {
             return 0;
         }
 
-        return round(($this->approved / $this->target) * 100, 2);
+        return round(($this->approved / $target) * 100, 2);
     }
 
     /**
-     * Get progress percentage (submitted + approved)
+     * Get progress percentage (submitted + approved) from pj_mappings target
      */
     public function getProgressPercentageAttribute(): float
     {
-        if ($this->target == 0) {
+        $target = $this->pjMapping?->target ?? 0;
+        if ($target == 0) {
             return 0;
         }
 
-        return round((($this->submitted + $this->approved) / $this->target) * 100, 2);
+        return round((($this->submitted + $this->approved) / $target) * 100, 2);
+    }
+
+    /**
+     * Get PJ mapping for this monitoring data
+     */
+    public function pjMapping(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PjMapping::class, 'village_code', 'village_code')
+            ->where('activity_id', $this->activity_id);
     }
 }
