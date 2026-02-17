@@ -30,10 +30,63 @@
     </div>
 
     <!-- Metrics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="text-gray-500 text-sm font-medium">Target</div>
-            <div class="text-3xl font-bold text-gray-900 mt-2">{{ number_format($metrics['total_target']) }}</div>
+    <!-- Mobile: 1 card ringkasan dengan progress bar -->
+    <div class="block md:hidden bg-white rounded-lg shadow p-4 space-y-3">
+        <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500">Target</span>
+            <span class="text-2xl font-bold text-gray-900">{{ number_format($metrics['total_target']) }}</span>
+        </div>
+        <!-- Progress bar stacked -->
+        @php
+            $t = $metrics['total_target'] > 0 ? $metrics['total_target'] : 1;
+            $pctOpen = round(($metrics['total_open']/$t)*100);
+            $pctSubmitted = round(($metrics['total_submitted']/$t)*100);
+            $pctApproved = round(($metrics['total_approved']/$t)*100);
+            $pctRejected = round(($metrics['total_rejected']/$t)*100);
+        @endphp
+        <div class="flex h-6 rounded overflow-hidden bg-gray-200">
+            @if($pctOpen > 0)<div style="width:{{$pctOpen}}%" class="bg-amber-300" title="Open"></div>@endif
+            @if($pctSubmitted > 0)<div style="width:{{$pctSubmitted}}%" class="bg-blue-500" title="Submitted"></div>@endif
+            @if($pctApproved > 0)<div style="width:{{$pctApproved}}%" class="bg-green-500" title="Approved"></div>@endif
+            @if($pctRejected > 0)<div style="width:{{$pctRejected}}%" class="bg-red-500" title="Rejected"></div>@endif
+        </div>
+        <!-- Legend -->
+        <div class="flex gap-3 text-xs text-gray-500 flex-wrap">
+            <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-amber-300"></span>Open</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>Submitted</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>Approved</span>
+            <span class="flex items-center gap-1"><span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>Rejected</span>
+        </div>
+        <!-- Stats grid 2x2 -->
+        <div class="grid grid-cols-2 gap-2">
+            <div class="bg-amber-50 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Open</div>
+                <div class="text-lg font-bold text-gray-700">{{ number_format($metrics['total_open']) }}</div>
+                <div class="text-xs text-amber-700">{{ $metrics['pct_open'] }}%</div>
+            </div>
+            <div class="bg-blue-50 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Submitted</div>
+                <div class="text-lg font-bold text-blue-700">{{ number_format($metrics['total_submitted']) }}</div>
+                <div class="text-xs text-blue-600">{{ $metrics['pct_submitted'] }}%</div>
+            </div>
+            <div class="bg-green-50 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Approved</div>
+                <div class="text-lg font-bold text-green-700">{{ number_format($metrics['total_approved']) }}</div>
+                <div class="text-xs text-green-600">{{ $metrics['pct_approved'] }}%</div>
+            </div>
+            <div class="bg-red-50 rounded-lg p-3">
+                <div class="text-xs text-gray-500">Rejected</div>
+                <div class="text-lg font-bold text-red-700">{{ number_format($metrics['total_rejected']) }}</div>
+                <div class="text-xs text-red-600">{{ $metrics['pct_rejected'] }}%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Desktop: 5 cards terpisah (hidden di mobile) -->
+    <div class="hidden md:grid md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div class="text-gray-500 text-xs sm:text-sm font-medium">Target</div>
+            <div class="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{{ number_format($metrics['total_target']) }}</div>
             <div class="text-xs text-gray-400 mt-1">Total sampel</div>
         </div>
         <div class="bg-white rounded-lg shadow p-6">
@@ -61,15 +114,15 @@
     <!-- Tabs -->
     <div class="bg-white rounded-lg shadow">
         <div class="border-b border-gray-200">
-            <nav class="flex -mb-px">
-                <button class="tab-button active border-b-2 border-blue-500 text-blue-600 py-4 px-6 font-medium" data-tab="kabupaten">
-                    📍 Per Kabupaten
+            <nav class="flex -mb-px overflow-x-auto">
+                <button class="tab-button active border-b-2 border-blue-500 text-blue-600 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="kabupaten">
+                    📍 <span class="hidden sm:inline">Per </span>Kabupaten
                 </button>
-                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium" data-tab="pj">
-                    👤 Per PJ
+                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="pj">
+                    👤 <span class="hidden sm:inline">Per </span>PJ
                 </button>
-                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-4 px-6 font-medium" data-tab="desa">
-                    🏘️ Per Desa
+                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="desa">
+                    🏘️ <span class="hidden sm:inline">Per </span>Desa
                 </button>
             </nav>
         </div>
@@ -81,7 +134,71 @@
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Breakdown Per Kabupaten</h3>
 
                 @if(count($regencyData) > 0)
-                    <div class="overflow-x-auto mb-6">
+                    <!-- Mobile: Card layout (hidden di md+) -->
+                    <div class="block md:hidden space-y-3 mb-6">
+                        @foreach($regencyData as $regency)
+                        @php
+                            $total = $regency['total_target'] > 0 ? $regency['total_target'] : 1;
+                            $pctOpen = round(($regency['total_open'] / $total) * 100);
+                            $pctSubmitted = round(($regency['total_submitted'] / $total) * 100);
+                            $pctApproved = round(($regency['total_approved'] / $total) * 100);
+                            $pctRejected = round(($regency['total_rejected'] / $total) * 100);
+                        @endphp
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <!-- Header -->
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="font-semibold text-gray-900 text-sm">{{ $regency['regency_name'] }}</div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-500">Target</div>
+                                    <div class="font-bold text-gray-900">{{ number_format($regency['total_target']) }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Progress bar stacked -->
+                            <div class="flex h-5 rounded overflow-hidden mb-3 text-xs font-semibold text-white bg-gray-200">
+                                @if($pctOpen > 0)
+                                    <div style="width: {{ $pctOpen }}%" class="bg-amber-300" title="Open: {{ $regency['total_open'] }}"></div>
+                                @endif
+                                @if($pctSubmitted > 0)
+                                    <div style="width: {{ $pctSubmitted }}%" class="bg-blue-500" title="Submitted: {{ $regency['total_submitted'] }}"></div>
+                                @endif
+                                @if($pctApproved > 0)
+                                    <div style="width: {{ $pctApproved }}%" class="bg-green-500" title="Approved: {{ $regency['total_approved'] }}"></div>
+                                @endif
+                                @if($pctRejected > 0)
+                                    <div style="width: {{ $pctRejected }}%" class="bg-red-500" title="Rejected: {{ $regency['total_rejected'] }}"></div>
+                                @endif
+                            </div>
+
+                            <!-- Counts grid 4 kolom -->
+                            <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                                <div class="bg-amber-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Open</div>
+                                    <div class="font-bold text-gray-700">{{ $regency['total_open'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $regency['pct_open'] }}%</div>
+                                </div>
+                                <div class="bg-blue-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Submitted</div>
+                                    <div class="font-bold text-blue-700">{{ $regency['total_submitted'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $regency['pct_submitted'] }}%</div>
+                                </div>
+                                <div class="bg-green-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Approved</div>
+                                    <div class="font-bold text-green-700">{{ $regency['total_approved'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $regency['pct_approved'] }}%</div>
+                                </div>
+                                <div class="bg-red-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Rejected</div>
+                                    <div class="font-bold text-red-700">{{ $regency['total_rejected'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $regency['pct_rejected'] }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Desktop: Tabel biasa (hidden di mobile) -->
+                    <div class="hidden md:block overflow-x-auto mb-6">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -106,7 +223,7 @@
                                             {{ number_format($regency['total_open']) }}
                                             <span class="text-xs text-gray-400">({{ $regency['pct_open'] }}%)</span>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-yellow-600">
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-blue-600">
                                             {{ number_format($regency['total_submitted']) }}
                                             <span class="text-xs text-gray-400">({{ $regency['pct_submitted'] }}%)</span>
                                         </td>
@@ -124,10 +241,12 @@
                         </table>
                     </div>
 
-                    <!-- Chart -->
-                    <div class="mt-6">
+                    <!-- Chart (hidden di mobile) -->
+                    <div class="hidden md:block mt-6">
                         <h4 class="text-md font-semibold text-gray-800 mb-3">Progress Per Kabupaten</h4>
-                        <canvas id="regencyChart" height="100"></canvas>
+                        <div class="relative h-48 sm:h-56 md:h-64">
+                            <canvas id="regencyChart"></canvas>
+                        </div>
                     </div>
                 @else
                     <p class="text-gray-500">Belum ada data kabupaten.</p>
@@ -139,7 +258,74 @@
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Breakdown Per Penanggung Jawab</h3>
 
                 @if(count($pjData) > 0)
-                    <div class="overflow-x-auto mb-6">
+                    <!-- Mobile: Card view dengan stacked bar (hidden di md+) -->
+                    <div class="block md:hidden space-y-3 mb-6">
+                        @foreach($pjData as $pj)
+                        @php
+                            $total = $pj['total_target'] > 0 ? $pj['total_target'] : 1;
+                            $pctOpen = round(($pj['total_open'] / $total) * 100);
+                            $pctSubmitted = round(($pj['total_submitted'] / $total) * 100);
+                            $pctApproved = round(($pj['total_approved'] / $total) * 100);
+                            $pctRejected = round(($pj['total_rejected'] / $total) * 100);
+                        @endphp
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <!-- Header -->
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="font-semibold text-gray-900 text-sm">{{ $pj['pj_name'] }}</div>
+                                    <div class="text-xs text-gray-500">{{ $pj['village_count'] }} desa</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-500">Target</div>
+                                    <div class="font-bold text-gray-900">{{ number_format($pj['total_target']) }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Progress bar stacked -->
+                            <div class="flex h-5 rounded overflow-hidden mb-3 text-xs font-semibold text-white bg-gray-200">
+                                @if($pctOpen > 0)
+                                    <div style="width: {{ $pctOpen }}%" class="bg-amber-300" title="Open: {{ $pj['total_open'] }}"></div>
+                                @endif
+                                @if($pctSubmitted > 0)
+                                    <div style="width: {{ $pctSubmitted }}%" class="bg-blue-500" title="Submitted: {{ $pj['total_submitted'] }}"></div>
+                                @endif
+                                @if($pctApproved > 0)
+                                    <div style="width: {{ $pctApproved }}%" class="bg-green-500" title="Approved: {{ $pj['total_approved'] }}"></div>
+                                @endif
+                                @if($pctRejected > 0)
+                                    <div style="width: {{ $pctRejected }}%" class="bg-red-500" title="Rejected: {{ $pj['total_rejected'] }}"></div>
+                                @endif
+                            </div>
+
+                            <!-- Counts grid 4 kolom -->
+                            <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                                <div class="bg-amber-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Open</div>
+                                    <div class="font-bold text-gray-700">{{ $pj['total_open'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $pj['pct_open'] }}%</div>
+                                </div>
+                                <div class="bg-blue-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Submitted</div>
+                                    <div class="font-bold text-blue-700">{{ $pj['total_submitted'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $pj['pct_submitted'] }}%</div>
+                                </div>
+                                <div class="bg-green-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Approved</div>
+                                    <div class="font-bold text-green-700">{{ $pj['total_approved'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $pj['pct_approved'] }}%</div>
+                                </div>
+                                <div class="bg-red-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Rejected</div>
+                                    <div class="font-bold text-red-700">{{ $pj['total_rejected'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $pj['pct_rejected'] }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Desktop: Tabel biasa (hidden di mobile, tampil di md+) -->
+                    <div class="hidden md:block overflow-x-auto mb-6">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -164,7 +350,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-gray-600">
                                             {{ number_format($pj['total_open']) }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-yellow-600">
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-blue-600">
                                             {{ number_format($pj['total_submitted']) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-green-600 font-semibold">
@@ -178,11 +364,14 @@
                             </tbody>
                         </table>
                     </div>
+                    </div>
 
-                    <!-- Chart -->
-                    <div class="mt-6">
-                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress PJ (Top 10)</h4>
-                        <canvas id="pjChart" height="150"></canvas>
+                    <!-- Chart (hidden di mobile) -->
+                    <div class="hidden md:block mt-6">
+                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress PJ</h4>
+                        <div id="pjChartContainer" class="relative">
+                            <canvas id="pjChart"></canvas>
+                        </div>
                     </div>
                 @else
                     <p class="text-gray-500">Belum ada data PJ. Upload file JSON mapping PJ terlebih dahulu.</p>
@@ -191,28 +380,97 @@
 
             <!-- Tab: Per Desa -->
             <div id="tab-desa" class="tab-content hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Semua Desa</h3>
-                    <div class="flex space-x-2">
-                        <input type="text" id="searchDesa" placeholder="Cari desa..."
-                            class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                        <select id="filterKabupaten" class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                            <option value="">Semua Kabupaten</option>
-                            @foreach(array_unique(array_column($villageData, 'regency_name')) as $regency)
-                                <option value="{{ $regency }}">{{ $regency }}</option>
-                            @endforeach
-                        </select>
-                        <select id="filterPj" class="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-                            <option value="">Semua PJ</option>
-                            @foreach(array_unique(array_filter(array_column($villageData, 'pj_name'))) as $pj)
-                                <option value="{{ $pj }}">{{ $pj }}</option>
-                            @endforeach
-                        </select>
+                <div class="space-y-2 sm:space-y-0 sm:flex sm:justify-between sm:items-center mb-4">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800">Semua Desa</h3>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                        <input type="text" id="searchDesa" placeholder="🔍 Cari desa..."
+                            class="w-full sm:w-auto border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                        <div class="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
+                            <select id="filterKabupaten" class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                                <option value="">Semua Kabupaten</option>
+                                @foreach(array_unique(array_column($villageData, 'regency_name')) as $regency)
+                                    <option value="{{ $regency }}">{{ $regency }}</option>
+                                @endforeach
+                            </select>
+                            <select id="filterPj" class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                                <option value="">Semua PJ</option>
+                                @foreach(array_unique(array_filter(array_column($villageData, 'pj_name'))) as $pj)
+                                    <option value="{{ $pj }}">{{ $pj }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 @if(count($villageData) > 0)
-                    <div class="overflow-x-auto">
+                    <!-- Mobile: Card layout dengan progress bar -->
+                    <div class="block md:hidden space-y-3 mb-6">
+                        @foreach($villageData as $village)
+                        @php
+                            $total = $village['target'] > 0 ? $village['target'] : 1;
+                            $pctOpen = round(($village['open'] / $total) * 100);
+                            $pctSubmitted = round(($village['submitted'] / $total) * 100);
+                            $pctApproved = round(($village['approved'] / $total) * 100);
+                            $pctRejected = round(($village['rejected'] / $total) * 100);
+                        @endphp
+                        <div class="village-row bg-gray-50 rounded-lg p-3 border border-gray-200"
+                            data-regency="{{ $village['regency_name'] }}"
+                            data-village="{{ strtolower($village['village_name']) }}"
+                            data-pj="{{ $village['pj_name'] ?? '' }}">
+
+                            <!-- Header: Nama desa + lokasi -->
+                            <div class="mb-2">
+                                <div class="font-semibold text-gray-900 text-sm">{{ $village['village_name'] }}</div>
+                                <div class="text-xs text-gray-500">{{ $village['village_code'] }}</div>
+                                <div class="text-xs text-gray-600 mt-1">
+                                    {{ $village['regency_name'] }}
+                                    @if($village['pj_name'])
+                                        • {{ $village['pj_name'] }}
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Progress bar (100% stacked) -->
+                            <div class="flex h-5 rounded overflow-hidden mb-2 text-xs font-semibold text-white bg-gray-200">
+                                @if($pctOpen > 0)
+                                    <div style="width: {{ $pctOpen }}%" class="bg-amber-300" title="Open: {{ $village['open'] }}"></div>
+                                @endif
+                                @if($pctSubmitted > 0)
+                                    <div style="width: {{ $pctSubmitted }}%" class="bg-blue-500" title="Submitted: {{ $village['submitted'] }}"></div>
+                                @endif
+                                @if($pctApproved > 0)
+                                    <div style="width: {{ $pctApproved }}%" class="bg-green-500" title="Approved: {{ $village['approved'] }}"></div>
+                                @endif
+                                @if($pctRejected > 0)
+                                    <div style="width: {{ $pctRejected }}%" class="bg-red-500" title="Rejected: {{ $village['rejected'] }}"></div>
+                                @endif
+                            </div>
+
+                            <!-- Counts: Grid 4 kolom compact -->
+                            <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                                <div class="bg-amber-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs leading-tight">Open</div>
+                                    <div class="font-bold text-gray-700">{{ $village['open'] }}</div>
+                                </div>
+                                <div class="bg-blue-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs leading-tight">Subm</div>
+                                    <div class="font-bold text-blue-700">{{ $village['submitted'] }}</div>
+                                </div>
+                                <div class="bg-green-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs leading-tight">Appr</div>
+                                    <div class="font-bold text-green-600">{{ $village['approved'] }}</div>
+                                </div>
+                                <div class="bg-red-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs leading-tight">Rej</div>
+                                    <div class="font-bold text-red-600">{{ $village['rejected'] }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Desktop: Tabel biasa (hidden di mobile) -->
+                    <div class="hidden md:block overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -245,7 +503,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-gray-600">
                                             {{ number_format($village['open']) }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-yellow-600">
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-blue-600">
                                             {{ number_format($village['submitted']) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-green-600 font-semibold">
@@ -259,6 +517,7 @@
                                 @endforeach
                             </tbody>
                         </table>
+                    </div>
                     </div>
                 @else
                     <p class="text-gray-500">Belum ada data desa.</p>
@@ -302,12 +561,12 @@
                     {
                         label: 'Open',
                         data: regencyData.map(r => r.pct_open),
-                        backgroundColor: '#ebd28d',
+                        backgroundColor: 'rgba(252, 211, 77, 0.9)',
                     },
                     {
                         label: 'Submitted',
                         data: regencyData.map(r => r.pct_submitted),
-                        backgroundColor: '#383beb',
+                        backgroundColor: 'rgba(59, 130, 246, 0.9)',
                     },
                     {
                         label: 'Approved',
@@ -323,6 +582,7 @@
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: { stacked: true },
                     y: {
@@ -350,34 +610,37 @@
         });
     }
 
-    // Chart: Per PJ (Horizontal Bar - 100% Stacked)
+    // Chart: Per PJ (Horizontal Bar - 100% Stacked - All PJ)
     const pjData = @json($pjData);
     if (pjData.length > 0) {
+        // Set container height dynamis berdasarkan jumlah PJ
+        const containerHeight = Math.max(300, pjData.length * 40);
+        document.getElementById('pjChartContainer').style.height = containerHeight + 'px';
+
         const ctxPj = document.getElementById('pjChart').getContext('2d');
-        const topPj = pjData.slice(0, 10);
         new Chart(ctxPj, {
             type: 'bar',
             data: {
-                labels: topPj.map(p => p.pj_name),
+                labels: pjData.map(p => p.pj_name),
                 datasets: [
                     {
                         label: 'Open',
-                        data: topPj.map(p => p.pct_open),
-                        backgroundColor: '#ebd28d',
+                        data: pjData.map(p => p.pct_open),
+                        backgroundColor: 'rgba(252, 211, 77, 0.9)',
                     },
                     {
                         label: 'Submitted',
-                        data: topPj.map(p => p.pct_submitted),
-                        backgroundColor: '#383beb',
+                        data: pjData.map(p => p.pct_submitted),
+                        backgroundColor: 'rgba(59, 130, 246, 0.9)',
                     },
                     {
                         label: 'Approved',
-                        data: topPj.map(p => p.pct_approved),
+                        data: pjData.map(p => p.pct_approved),
                         backgroundColor: 'rgba(34, 197, 94, 0.8)',
                     },
                     {
                         label: 'Rejected',
-                        data: topPj.map(p => p.pct_rejected),
+                        data: pjData.map(p => p.pct_rejected),
                         backgroundColor: 'rgba(239, 68, 68, 0.8)',
                     }
                 ]
@@ -385,6 +648,7 @@
             options: {
                 indexAxis: 'y',
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: {
                         stacked: true,
