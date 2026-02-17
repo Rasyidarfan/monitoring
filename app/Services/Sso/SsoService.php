@@ -42,16 +42,44 @@ class SsoService
     public function getUserFromCode(string $code): ?array
     {
         try {
-            $response = Http::asForm()->post(config('sso.token_url'), [
+            $tokenUrl = config('sso.token_url');
+
+            Log::info('SSO Token Exchange - Starting', [
+                'url' => $tokenUrl,
+                'code_prefix' => substr($code, 0, 10),
+                'client_id' => $this->clientId,
+            ]);
+
+            $response = Http::asForm()->post($tokenUrl, [
                 'code' => $code,
                 'client_id' => $this->clientId,
                 'client_secret' => $this->clientSecret,
             ]);
 
+            Log::info('SSO Token Exchange - Response Received', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+            ]);
+
+            // Log the full response body for debugging
+            Log::debug('SSO Token Exchange - Full Response Body', [
+                'body' => $response->body(),
+            ]);
+
             if ($response->successful()) {
                 $data = $response->json();
 
+                Log::info('SSO Token Exchange - Parsed Response', [
+                    'data_keys' => array_keys((array)$data ?? []),
+                    'has_status' => isset($data['status']),
+                    'has_data' => isset($data['data']),
+                    'has_error' => isset($data['error']),
+                ]);
+
                 if ($data['status'] === 'success' && isset($data['data'])) {
+                    Log::info('SSO Token Exchange - Success', [
+                        'user_id' => $data['data']['user_id'] ?? 'unknown',
+                    ]);
                     return $data['data'];
                 }
 
