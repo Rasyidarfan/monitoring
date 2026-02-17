@@ -22,9 +22,14 @@
                 @endif
             </div>
             @auth
-                <a href="/admin/kegiatan/{{ $activity->id }}/upload" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
-                    📤 Upload Data
-                </a>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <a href="{{ route('activities.edit', $activity) }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-center">
+                        ✏️ Edit Kegiatan
+                    </a>
+                    <a href="/admin/kegiatan/{{ $activity->id }}/upload" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-center">
+                        📤 Upload Data
+                    </a>
+                </div>
             @endauth
         </div>
     </div>
