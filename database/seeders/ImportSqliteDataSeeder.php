@@ -74,9 +74,16 @@ class ImportSqliteDataSeeder extends Seeder
                         'submitted' => $data['SUBMITTED'] ?? 0,
                         'approved' => $data['APPROVED'] ?? 0,
                         'rejected' => $data['REJECTED'] ?? 0,
-                        'pj_code' => $villageCode, // Use village code as PJ code
-                        'pj_name' => $pjName,
                     ]);
+
+                    // Create PJ mapping separately
+                    if ($pjName) {
+                        $activity->pjMappings()->create([
+                            'village_code' => $villageCode,
+                            'pj_code' => $villageCode,
+                            'pj_name' => $pjName,
+                        ]);
+                    }
                 }
 
                 $this->command->info("   - Imported " . count($monitoringData) . " villages");

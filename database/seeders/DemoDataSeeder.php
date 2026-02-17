@@ -116,9 +116,16 @@ class DemoDataSeeder extends Seeder
                 'submitted' => $village[5],
                 'approved' => $village[6],
                 'rejected' => $village[7],
-                'pj_code' => $village[8] ?? null,
-                'pj_name' => $village[9] ?? null,
             ]);
+
+            // Create PJ mapping separately
+            if (isset($village[8]) && isset($village[9])) {
+                $activity->pjMappings()->create([
+                    'village_code' => $village[0],
+                    'pj_code' => $village[8],
+                    'pj_name' => $village[9],
+                ]);
+            }
         }
     }
 }

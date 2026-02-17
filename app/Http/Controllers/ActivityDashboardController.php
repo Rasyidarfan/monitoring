@@ -109,38 +109,61 @@ class ActivityDashboardController extends Controller
      */
     protected function getPjData(Activity $activity): array
     {
-        $data = MonitoringData::where('activity_id', $activity->id)
-            ->whereNotNull('pj_name')
-            ->selectRaw('
-                pj_name,
-                SUM(target) as total_target,
-                SUM(open) as total_open,
-                SUM(submitted) as total_submitted,
-                SUM(approved) as total_approved,
-                SUM(rejected) as total_rejected,
-                COUNT(DISTINCT village_code) as village_count
-            ')
-            ->groupBy('pj_name')
-            ->get()
-            ->map(function ($item) {
-                $total = $item->total_target > 0 ? $item->total_target : 1;
-                return [
-                    'pj_name' => $item->pj_name,
-                    'village_count' => $item->village_count,
-                    'total_target' => $item->total_target,
-                    'total_open' => $item->total_open,
-                    'total_submitted' => $item->total_submitted,
-                    'total_approved' => $item->total_approved,
-                    'total_rejected' => $item->total_rejected,
-                    'pct_open' => round(($item->total_open / $total) * 100, 2),
-                    'pct_submitted' => round(($item->total_submitted / $total) * 100, 2),
-                    'pct_approved' => round(($item->total_approved / $total) * 100, 2),
-                    'pct_rejected' => round(($item->total_rejected / $total) * 100, 2),
+        // Get unique PJ names from pj_mappings
+        $pjMappings = $activity->pjMappings()
+            ->select('pj_name')
+            ->distinct()
+            ->pluck('pj_name');
+
+        $data = [];
+
+        // If no pj_mappings exist, return empty array
+        // (data will only be shown after uploading PJ mapping JSON)
+        if ($pjMappings->isEmpty()) {
+            return [];
+        }
+
+        foreach ($pjMappings as $pjName) {
+            // Get village codes for this PJ
+            $villageCodes = $activity->pjMappings()
+                ->where('pj_name', $pjName)
+                ->pluck('village_code');
+
+            // Get metrics for villages under this PJ
+            $metrics = MonitoringData::where('activity_id', $activity->id)
+                ->whereIn('village_code', $villageCodes)
+                ->selectRaw('
+                    SUM(target) as total_target,
+                    SUM(open) as total_open,
+                    SUM(submitted) as total_submitted,
+                    SUM(approved) as total_approved,
+                    SUM(rejected) as total_rejected,
+                    COUNT(DISTINCT village_code) as village_count
+                ')
+                ->first();
+
+            if ($metrics && $metrics->village_count > 0) {
+                $total = $metrics->total_target > 0 ? $metrics->total_target : 1;
+                $data[] = [
+                    'pj_name' => $pjName,
+                    'village_count' => $metrics->village_count,
+                    'total_target' => $metrics->total_target,
+                    'total_open' => $metrics->total_open,
+                    'total_submitted' => $metrics->total_submitted,
+                    'total_approved' => $metrics->total_approved,
+                    'total_rejected' => $metrics->total_rejected,
+                    'pct_open' => round(($metrics->total_open / $total) * 100, 2),
+                    'pct_submitted' => round(($metrics->total_submitted / $total) * 100, 2),
+                    'pct_approved' => round(($metrics->total_approved / $total) * 100, 2),
+                    'pct_rejected' => round(($metrics->total_rejected / $total) * 100, 2),
                 ];
-            })
-            ->sortByDesc('total_target')
-            ->values()
-            ->toArray();
+            }
+        }
+
+        // Sort by total_target descending
+        usort($data, function ($a, $b) {
+            return $b['total_target'] <=> $a['total_target'];
+        });
 
         return $data;
     }
@@ -150,9 +173,25 @@ class ActivityDashboardController extends Controller
      */
     protected function getVillageData(Activity $activity): array
     {
-        $data = MonitoringData::where('activity_id', $activity->id)
-            ->orderBy('regency_code')
-            ->orderBy('village_name')
+        $data = MonitoringData::where('monitoring_data.activity_id', $activity->id)
+            ->leftJoin('pj_mappings', function ($join) use ($activity) {
+                $join->on('monitoring_data.village_code', '=', 'pj_mappings.village_code')
+                    ->where('pj_mappings.activity_id', $activity->id);
+            })
+            ->select(
+                'monitoring_data.village_code',
+                'monitoring_data.village_name',
+                'monitoring_data.regency_code',
+                'monitoring_data.target',
+                'monitoring_data.open',
+                'monitoring_data.submitted',
+                'monitoring_data.approved',
+                'monitoring_data.rejected',
+                'pj_mappings.pj_code',
+                'pj_mappings.pj_name'
+            )
+            ->orderBy('monitoring_data.regency_code')
+            ->orderBy('monitoring_data.village_name')
             ->get()
             ->map(function ($item) {
                 $total = $item->target > 0 ? $item->target : 1;
