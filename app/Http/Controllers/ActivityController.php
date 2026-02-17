@@ -129,4 +129,46 @@ class ActivityController extends Controller
 
         return back()->with('success', 'PJ Mapping berhasil diupdate!');
     }
+
+    /**
+     * Batch update PJ Mappings
+     */
+    public function batchUpdatePjMapping(Request $request, Activity $activity): RedirectResponse
+    {
+        $request->validate([
+            'selected_ids' => 'required|string',
+            'pj_name' => 'nullable|string|max:255',
+            'target' => 'nullable|integer|min:0',
+        ]);
+
+        $selectedIds = array_filter(explode(',', $request->input('selected_ids')));
+
+        if (empty($selectedIds)) {
+            return back()->with('error', 'Tidak ada baris yang dipilih!');
+        }
+
+        // Update hanya field yang tidak kosong
+        $updateData = [];
+
+        if ($request->filled('pj_name')) {
+            $updateData['pj_name'] = $request->input('pj_name');
+        }
+
+        if ($request->filled('target')) {
+            $updateData['target'] = $request->input('target');
+        }
+
+        if (empty($updateData)) {
+            return back()->with('error', 'Silakan isi minimal satu field untuk di-update!');
+        }
+
+        // Update semua selected PJ mappings
+        $updated = PjMapping::where('activity_id', $activity->id)
+            ->whereIn('id', $selectedIds)
+            ->update($updateData);
+
+        $message = "{$updated} PJ Mapping berhasil diupdate!";
+
+        return back()->with('success', $message);
+    }
 }

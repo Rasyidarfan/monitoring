@@ -103,13 +103,20 @@
     <!-- PJ Mappings Table -->
     @if($pjMappings->count() > 0)
     <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="p-6 border-b border-gray-200">
+        <div class="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 class="text-lg font-semibold text-gray-800">📋 PJ Mapping ({{ $pjMappings->count() }})</h3>
+            <button type="button" id="toggleSelectAll" class="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                    onclick="toggleSelectAll()">
+                Pilih Semua
+            </button>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-gray-50 border-b border-gray-200">
                     <tr>
+                        <th class="px-4 py-3 text-center font-semibold text-gray-700 w-12">
+                            <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)">
+                        </th>
                         <th class="px-6 py-3 text-left font-semibold text-gray-700">Village Code</th>
                         <th class="px-6 py-3 text-left font-semibold text-gray-700">Desa Nama</th>
                         <th class="px-6 py-3 text-left font-semibold text-gray-700">PJ Name</th>
@@ -120,6 +127,9 @@
                 <tbody>
                     @foreach($pjMappings as $pj)
                     <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" class="pj-checkbox" value="{{ $pj->id }}" onchange="updateBatchButtonState()">
+                        </td>
                         <td class="px-6 py-3 text-gray-800">{{ $pj->village_code }}</td>
                         <td class="px-6 py-3 text-gray-800">{{ $pj->desa_nama ?? '-' }}</td>
                         <td class="px-6 py-3 text-gray-800">{{ $pj->pj_name ?? '-' }}</td>
@@ -135,6 +145,60 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Batch Edit Section -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="p-6 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">⚙️ Edit Massal</h3>
+            <p class="text-sm text-gray-600 mt-1">Pilih baris di atas untuk mengedit PJ Name dan Target secara batch</p>
+        </div>
+        <div class="p-6">
+            <form id="batchEditForm" method="POST" action="{{ route('activities.batch-update-pj', $activity) }}">
+                @csrf
+                <div class="space-y-4">
+                    <!-- PJ Name -->
+                    <div>
+                        <label for="batch_pj_name" class="block text-sm font-medium text-gray-700 mb-2">
+                            PJ Name (Kosongkan jika tidak ingin diubah)
+                        </label>
+                        <input type="text" id="batch_pj_name" name="pj_name"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               placeholder="">
+                    </div>
+
+                    <!-- Target -->
+                    <div>
+                        <label for="batch_target" class="block text-sm font-medium text-gray-700 mb-2">
+                            Target (Kosongkan jika tidak ingin diubah)
+                        </label>
+                        <input type="number" id="batch_target" name="target" min="0"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               placeholder="">
+                    </div>
+
+                    <!-- Hidden input untuk selected IDs -->
+                    <input type="hidden" id="selectedIds" name="selected_ids" value="">
+
+                    <!-- Status -->
+                    <div id="batchStatus" class="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                        Pilih 0 baris untuk edit massal
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="flex justify-end space-x-3 pt-4 border-t">
+                        <button type="button" onclick="clearBatchForm()"
+                                class="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50">
+                            Bersihkan
+                        </button>
+                        <button type="submit" id="batchSubmitBtn" disabled
+                                class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            Update Massal
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
     @endif
@@ -223,6 +287,78 @@ document.getElementById('editModal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeEditModal();
     }
+});
+
+// Batch Edit Functions
+function getSelectedCheckboxes() {
+    return Array.from(document.querySelectorAll('.pj-checkbox:checked')).map(cb => cb.value);
+}
+
+function updateBatchButtonState() {
+    const selected = getSelectedCheckboxes();
+    const submitBtn = document.getElementById('batchSubmitBtn');
+    const statusDiv = document.getElementById('batchStatus');
+    const selectedIdsInput = document.getElementById('selectedIds');
+
+    if (selected.length > 0) {
+        submitBtn.disabled = false;
+        statusDiv.innerHTML = `✓ Pilih <strong>${selected.length}</strong> baris untuk edit massal`;
+        statusDiv.className = 'text-sm text-green-700 bg-green-50 p-3 rounded';
+        selectedIdsInput.value = selected.join(',');
+    } else {
+        submitBtn.disabled = true;
+        statusDiv.innerHTML = 'Pilih 0 baris untuk edit massal';
+        statusDiv.className = 'text-sm text-gray-600 bg-gray-50 p-3 rounded';
+        selectedIdsInput.value = '';
+    }
+}
+
+function toggleSelectAll(checkbox) {
+    const checkboxes = document.querySelectorAll('.pj-checkbox');
+    const isChecked = checkbox ? checkbox.checked : document.getElementById('selectAllCheckbox').checked;
+
+    checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+    });
+
+    updateBatchButtonState();
+}
+
+function clearBatchForm() {
+    document.getElementById('batch_desa_nama').value = '';
+    document.getElementById('batch_pj_name').value = '';
+    document.getElementById('batch_target').value = '';
+
+    document.querySelectorAll('.pj-checkbox').forEach(cb => {
+        cb.checked = false;
+    });
+    document.getElementById('selectAllCheckbox').checked = false;
+
+    updateBatchButtonState();
+}
+
+// Form submission handler
+document.getElementById('batchEditForm').addEventListener('submit', function(e) {
+    const pj_name = document.getElementById('batch_pj_name').value.trim();
+    const target = document.getElementById('batch_target').value.trim();
+
+    if (!pj_name && !target) {
+        e.preventDefault();
+        alert('Silakan isi minimal satu field (PJ Name atau Target) untuk di-update');
+        return false;
+    }
+
+    const selected = getSelectedCheckboxes();
+    if (selected.length === 0) {
+        e.preventDefault();
+        alert('Silakan pilih minimal satu baris');
+        return false;
+    }
+});
+
+// Initialize batch button state on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateBatchButtonState();
 });
 </script>
 

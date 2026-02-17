@@ -62,4 +62,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
     // Edit PJ Mapping
     Route::post('kegiatan/{activity}/pj-mapping/{pjMapping}', [ActivityController::class, 'updatePjMapping'])->name('pj-mapping.update');
+
+    // Batch Update PJ Mappings
+    Route::post('kegiatan/{activity}/batch-update-pj', [ActivityController::class, 'batchUpdatePjMapping'])->name('activities.batch-update-pj');
 });
