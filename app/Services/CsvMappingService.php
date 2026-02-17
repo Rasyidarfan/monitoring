@@ -33,6 +33,12 @@ class CsvMappingService
             'Completed',
             'COMPLETED',
         ],
+        'completed' => [
+            'Completed by Admin Kabupaten',
+            'COMPLETED BY ADMIN KABUPATEN',
+            'Completed by Admin',
+            'COMPLETED BY ADMIN',
+        ],
         'rejected' => [
             'Rejected by PML',
             'REJECTED BY PML',
@@ -97,6 +103,13 @@ class CsvMappingService
             } else {
                 $values[$ourField] = 0; // Default to 0 if field not found
             }
+        }
+
+        // Add 'completed' (COMPLETED BY Admin Kabupaten) to 'approved' value
+        // This ensures all approved work (by PML and Admin) is counted together
+        if (isset($values['completed'])) {
+            $values['approved'] += $values['completed'];
+            unset($values['completed']); // Remove completed from final output since it's merged
         }
 
         return $values;
