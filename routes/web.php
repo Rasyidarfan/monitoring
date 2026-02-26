@@ -59,6 +59,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::post('kegiatan/{activity}/upload/json', [UploadController::class, 'uploadJson'])->name('upload.json');
     Route::post('kegiatan/{activity}/upload/csv', [UploadController::class, 'uploadCsv'])->name('upload.csv');
     Route::post('kegiatan/{activity}/upload/zip', [UploadController::class, 'uploadZip'])->name('upload.zip');
+    Route::post('kegiatan/{activity}/upload/anomaly-json', [UploadController::class, 'uploadAnomalyJson'])->name('upload.anomaly-json');
     Route::post('kegiatan/{activity}/upload/anomaly-csv', [UploadController::class, 'uploadAnomalyCSV'])->name('upload.anomaly-csv');
 
     // Edit PJ Mapping

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Models\Anomaly;
 use App\Models\AnomalyData;
 use App\Models\MonitoringData;
 use App\Models\PjMapping;
@@ -454,6 +455,85 @@ class UploadController extends Controller
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading ZIP: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Upload JSON file (Anomaly Master Data) - SYNC Mode
+     * Replace anomalies master data with new JSON data
+     * Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+     */
+    public function uploadAnomalyJson(Request $request, Activity $activity): RedirectResponse
+    {
+        $request->validate([
+            'anomaly_json_file' => 'required|file|mimes:json,txt|max:10240', // 10MB
+        ]);
+
+        try {
+            $file = $request->file('anomaly_json_file');
+            $content = file_get_contents($file->getRealPath());
+            $data = json_decode($content, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('Invalid JSON format: ' . json_last_error_msg());
+            }
+
+            if (!is_array($data)) {
+                throw new \Exception('JSON must be an array of anomaly objects');
+            }
+
+            // SYNC Mode: Clear and reload anomalies master data
+            Anomaly::truncate();
+
+            $inserted = 0;
+            $skipped = 0;
+
+            foreach ($data as $item) {
+                $code = $item['No. Anomali'] ?? null;
+                $rule = $item['Rule dg Nama Variable di FASIH'] ?? null;
+                $description = $item['Keterangan (disesuaikan dg variabel FASIH)'] ?? null;
+
+                // Handle alternative description field name
+                if (!$description) {
+                    $description = $item['Keterangan'] ?? null;
+                }
+
+                if (!$code || !$description) {
+                    $skipped++;
+                    continue;
+                }
+
+                Anomaly::create([
+                    'code' => $code,
+                    'rule' => $rule,
+                    'description' => $description,
+                ]);
+
+                $inserted++;
+            }
+
+            // Update activity's last_data_upload_at
+            $filename = $file->getClientOriginalName();
+            $activity->update(['last_data_upload_at' => now()]);
+
+            // Log upload history
+            $activity->uploadHistories()->create([
+                'uploaded_by' => auth()->id(),
+                'file_type' => 'anomaly_json',
+                'original_filename' => $filename,
+                'stored_filename' => $filename,
+                'file_size' => $file->getSize(),
+                'records_imported' => $inserted,
+                'status' => 'completed',
+            ]);
+
+            $message = "Anomaly JSON uploaded successfully! Imported: {$inserted}.";
+            if ($skipped > 0) $message .= " Skipped: {$skipped} (invalid format).";
+
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error uploading Anomaly JSON: ' . $e->getMessage());
         }
     }
 

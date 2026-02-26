@@ -23,7 +23,41 @@
         </div>
     </div>
 
+    <!-- Anomaly Master Data Section -->
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <p class="text-yellow-900 text-sm">
+            <strong>⚠️ Master Data Anomali:</strong> Sebelum mengupload data anomali per ART, upload dulu JSON penjelasan anomali (A01-A75) di bawah ini. Data ini hanya perlu di-upload sekali atau saat ada update penjelasan anomali.
+        </p>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Upload JSON (Anomaly Master Data) -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Upload JSON (Anomali Master Data)</h3>
+            <form action="{{ route('upload.anomaly-json', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Anomaly JSON File
+                        </label>
+                        <input type="file"
+                               name="anomaly_json_file"
+                               accept=".json,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+                        Upload Anomaly JSON
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Upload JSON (PJ Mapping) -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📄 Upload JSON (PJ Mapping)</h3>
@@ -173,8 +207,15 @@
                                         {{ $upload->file_type === 'json' ? 'bg-blue-100 text-blue-800' : '' }}
                                         {{ $upload->file_type === 'csv' ? 'bg-green-100 text-green-800' : '' }}
                                         {{ $upload->file_type === 'zip' ? 'bg-purple-100 text-purple-800' : '' }}
+                                        {{ $upload->file_type === 'anomaly_json' ? 'bg-yellow-100 text-yellow-800' : '' }}
                                         {{ $upload->file_type === 'anomaly_csv' ? 'bg-orange-100 text-orange-800' : '' }}">
-                                        {{ $upload->file_type === 'anomaly_csv' ? 'ANOMALY CSV' : strtoupper($upload->file_type) }}
+                                        @if($upload->file_type === 'anomaly_csv')
+                                            ANOMALY CSV
+                                        @elseif($upload->file_type === 'anomaly_json')
+                                            ANOMALY JSON
+                                        @else
+                                            {{ strtoupper($upload->file_type) }}
+                                        @endif
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-900">
@@ -200,7 +241,8 @@
             <strong>💡 Tips:</strong>
         </p>
         <ul class="list-disc list-inside text-blue-900 text-sm mt-2 space-y-1">
-            <li>Upload <strong>JSON</strong> untuk mapping Penanggung Jawab (PJ) ke desa - akan mengganti mapping lama</li>
+            <li>Upload <strong>JSON (Anomali Master)</strong> untuk penjelasan anomali (A01-A75) - hanya perlu di-upload sekali saat awal setup</li>
+            <li>Upload <strong>JSON (PJ Mapping)</strong> untuk mapping Penanggung Jawab (PJ) ke desa - akan mengganti mapping lama</li>
             <li>Upload <strong>CSV</strong> untuk data monitoring (Target, Open, Submitted, Approved, Rejected) - akan menghapus semua data lama dan mengimport data baru</li>
             <li>Upload <strong>ZIP</strong> untuk batch upload CSV (lebih praktis) - akan menghapus semua data lama dan mengimport data baru</li>
             <li>Upload <strong>Anomaly CSV</strong> untuk data anomali per ART - akan menampilkan tab Anomali dengan detail anomali per keluarga</li>
