@@ -129,6 +129,9 @@
                 <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="desa">
                     🏘️ <span class="hidden sm:inline">Per </span>Desa
                 </button>
+                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="anomali">
+                    ⚠️ <span class="hidden sm:inline">Tab </span>Anomali
+                </button>
             </nav>
         </div>
 
@@ -528,6 +531,88 @@
                     <p class="text-gray-500">Belum ada data desa.</p>
                 @endif
             </div>
+
+            <!-- Tab: Anomali -->
+            <div id="tab-anomali" class="tab-content hidden">
+                <div class="space-y-2 sm:space-y-0 sm:flex sm:justify-between sm:items-center mb-4">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800">Data Anomali Per Kepala Keluarga</h3>
+                    <input type="text" id="searchAnomali" placeholder="🔍 Cari KK..."
+                        class="w-full sm:w-auto border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 mt-2 sm:mt-0">
+                </div>
+
+                @if(count($anomalyCards) > 0)
+                    <!-- Cards Container -->
+                    <div class="space-y-4">
+                        @foreach($anomalyCards as $card)
+                            <div class="anomaly-card bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+                                data-search="{{ strtolower($card['nama_krt'] . ' ' . $card['kecamatan'] . ' ' . $card['desa']) }}">
+
+                                <!-- Header: Wilayah + PJ -->
+                                <div class="mb-3">
+                                    <div class="flex justify-between items-start gap-2">
+                                        <div>
+                                            <div class="font-bold text-gray-900">{{ $card['nama_krt'] }}</div>
+                                            <div class="text-sm text-gray-600 mt-1">
+                                                {{ $card['kecamatan'] }} - {{ $card['desa'] }}
+                                            </div>
+                                        </div>
+                                        <div class="text-right text-sm">
+                                            <div class="text-gray-500">PJ:</div>
+                                            <div class="font-medium text-gray-900">
+                                                {{ $card['pj_name'] ?? 'Belum ditentukan' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- List ART dengan Anomali -->
+                                <div class="space-y-3 mt-3">
+                                    @foreach($card['art_list'] as $art)
+                                        <div class="bg-gray-50 rounded p-3 border border-gray-100">
+                                            <div class="font-medium text-sm text-gray-900 mb-2">
+                                                ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}
+                                            </div>
+
+                                            @if(count($art['anomali_details']) > 0)
+                                                <div class="space-y-1.5">
+                                                    @foreach($art['anomali_details'] as $anomali)
+                                                        <div class="flex items-start gap-2 text-xs">
+                                                            <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap">
+                                                                {{ $anomali['code'] }}
+                                                            </span>
+                                                            <span class="text-gray-700 flex-1">{{ $anomali['description'] }}</span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @else
+                                                <div class="text-xs text-gray-500">Tidak ada anomali</div>
+                                            @endif
+
+                                            @if($art['link'])
+                                                <a href="{{ $art['link'] }}" target="_blank" rel="noopener noreferrer"
+                                                    class="text-blue-600 hover:text-blue-800 text-xs mt-2 inline-block">
+                                                    🔗 Lihat di FASIH
+                                                </a>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                        <p class="text-gray-600">Belum ada data anomali.</p>
+                        @auth
+                            <p class="text-sm text-gray-500 mt-2">
+                                <a href="{{ route('upload.show', $activity) }}" class="text-blue-600 hover:text-blue-800 font-medium">
+                                    Upload file CSV anomali
+                                </a> untuk menampilkan data anomali di sini.
+                            </p>
+                        @endauth
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </div>
@@ -712,5 +797,17 @@
     if (searchInput) searchInput.addEventListener('input', filterTable);
     if (filterKabupatenSelect) filterKabupatenSelect.addEventListener('change', filterTable);
     if (filterPjSelect) filterPjSelect.addEventListener('change', filterTable);
+
+    // Search Anomali
+    const searchAnomalyInput = document.getElementById('searchAnomali');
+    if (searchAnomalyInput) {
+        searchAnomalyInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            document.querySelectorAll('.anomaly-card').forEach(card => {
+                const searchText = card.dataset.search || '';
+                card.style.display = searchText.includes(term) ? '' : 'none';
+            });
+        });
+    }
 </script>
 @endsection

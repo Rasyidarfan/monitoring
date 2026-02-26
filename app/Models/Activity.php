@@ -48,6 +48,14 @@ class Activity extends Model
     }
 
     /**
+     * Anomaly data for this activity
+     */
+    public function anomalyData(): HasMany
+    {
+        return $this->hasMany(AnomalyData::class);
+    }
+
+    /**
      * Get total target for this activity (from pj_mappings)
      */
     public function getTotalTargetAttribute(): int

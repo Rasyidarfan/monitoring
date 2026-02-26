@@ -85,6 +85,33 @@
             </form>
         </div>
 
+        <!-- Upload Anomaly CSV -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali</h3>
+            <form action="{{ route('upload.anomaly-csv', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Anomaly CSV File
+                        </label>
+                        <input type="file"
+                               name="anomaly_csv_file"
+                               accept=".csv,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Format: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
+                        Upload Anomaly CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+
         <!-- Upload ZIP -->
         <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📦 Upload ZIP (Batch Upload)</h3>
@@ -145,8 +172,9 @@
                                     <span class="px-2 py-1 text-xs rounded
                                         {{ $upload->file_type === 'json' ? 'bg-blue-100 text-blue-800' : '' }}
                                         {{ $upload->file_type === 'csv' ? 'bg-green-100 text-green-800' : '' }}
-                                        {{ $upload->file_type === 'zip' ? 'bg-purple-100 text-purple-800' : '' }}">
-                                        {{ strtoupper($upload->file_type) }}
+                                        {{ $upload->file_type === 'zip' ? 'bg-purple-100 text-purple-800' : '' }}
+                                        {{ $upload->file_type === 'anomaly_csv' ? 'bg-orange-100 text-orange-800' : '' }}">
+                                        {{ $upload->file_type === 'anomaly_csv' ? 'ANOMALY CSV' : strtoupper($upload->file_type) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-900">
@@ -175,6 +203,7 @@
             <li>Upload <strong>JSON</strong> untuk mapping Penanggung Jawab (PJ) ke desa - akan mengganti mapping lama</li>
             <li>Upload <strong>CSV</strong> untuk data monitoring (Target, Open, Submitted, Approved, Rejected) - akan menghapus semua data lama dan mengimport data baru</li>
             <li>Upload <strong>ZIP</strong> untuk batch upload CSV (lebih praktis) - akan menghapus semua data lama dan mengimport data baru</li>
+            <li>Upload <strong>Anomaly CSV</strong> untuk data anomali per ART - akan menampilkan tab Anomali dengan detail anomali per keluarga</li>
             <li>Mapping PJ disimpan terpisah dan dapat di-update kapan saja tanpa menghapus data monitoring</li>
         </ul>
     </div>

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Models\Anomaly;
+use App\Models\AnomalyData;
 use App\Models\MonitoringData;
 use App\Models\PjMapping;
 use Illuminate\Http\Request;
@@ -30,12 +32,16 @@ class ActivityDashboardController extends Controller
         // Get overall metrics
         $metrics = $this->getActivityMetrics($activity);
 
+        // Get anomaly cards data
+        $anomalyCards = $this->getAnomalyCards($activity);
+
         return view('activities.dashboard', [
             'activity' => $activity,
             'regencyData' => $regencyData,
             'pjData' => $pjData,
             'villageData' => $villageData,
             'metrics' => $metrics,
+            'anomalyCards' => $anomalyCards,
         ]);
     }
 
@@ -255,6 +261,68 @@ class ActivityDashboardController extends Controller
             ->toArray();
 
         return $allVillages;
+    }
+
+    /**
+     * Get anomaly cards grouped by KK (Kepala Keluarga)
+     */
+    protected function getAnomalyCards(Activity $activity): array
+    {
+        // Get all anomaly data for this activity
+        $anomalyDataList = AnomalyData::where('activity_id', $activity->id)
+            ->orderBy('kode_daerah')
+            ->orderBy('dsrt')
+            ->orderBy('no_art')
+            ->get();
+
+        if ($anomalyDataList->isEmpty()) {
+            return [];
+        }
+
+        // Group by KK (kode_daerah + dsrt)
+        $groupedByKK = $anomalyDataList->groupBy(function ($item) {
+            return $item->kode_daerah . '|' . $item->dsrt;
+        });
+
+        $cards = [];
+
+        foreach ($groupedByKK as $kkKey => $artList) {
+            // Get first item to get KK info
+            $firstArt = $artList->first();
+
+            // Get village code (10 digits) to find PJ mapping
+            $villageCode = substr($firstArt->kode_daerah, 0, 10);
+            $pjMapping = PjMapping::where('activity_id', $activity->id)
+                ->where('village_code', $villageCode)
+                ->first();
+
+            // Build ART list with anomali details
+            $artWithAnomalies = [];
+            foreach ($artList as $art) {
+                $anomalyDetails = $art->getAnomalyDetails();
+
+                $artWithAnomalies[] = [
+                    'no_art' => $art->no_art,
+                    'nama_art' => $art->nama_art,
+                    'link' => $art->link,
+                    'anomali_details' => $anomalyDetails,
+                ];
+            }
+
+            // Create card
+            $cards[] = [
+                'kode_daerah' => $firstArt->kode_daerah,
+                'dsrt' => $firstArt->dsrt,
+                'kecamatan' => $firstArt->kecamatan,
+                'desa' => $firstArt->desa,
+                'nama_krt' => $firstArt->nama_krt,
+                'pj_name' => $pjMapping?->pj_name ?? null,
+                'pj_code' => $pjMapping?->pj_code ?? null,
+                'art_list' => $artWithAnomalies,
+            ];
+        }
+
+        return $cards;
     }
 
     /**

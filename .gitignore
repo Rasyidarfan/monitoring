@@ -22,3 +22,11 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Ignore csv, json, and zip files from public folder
+/public/*.csv
+/public/*.json
+/public/*.zip
+/public/**/*.csv
+/public/**/*.json
+/public/**/*.zip

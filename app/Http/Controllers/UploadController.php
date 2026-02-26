@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Models\AnomalyData;
 use App\Models\MonitoringData;
 use App\Models\PjMapping;
 use App\Services\CsvMappingService;
@@ -453,6 +454,111 @@ class UploadController extends Controller
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading ZIP: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Upload CSV file (Anomaly Data) - SYNC Mode
+     * Replace all anomaly_data for this activity with new CSV data
+     */
+    public function uploadAnomalyCSV(Request $request, Activity $activity): RedirectResponse
+    {
+        $request->validate([
+            'anomaly_csv_file' => 'required|file|mimes:csv,txt|max:10240', // 10MB
+        ]);
+
+        try {
+            $file = $request->file('anomaly_csv_file');
+            $handle = fopen($file->getRealPath(), 'r');
+
+            // Read header
+            $header = fgetcsv($handle);
+            if (!$header) {
+                throw new \Exception('CSV file is empty');
+            }
+
+            // Expected headers: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
+            $headerMap = array_flip(array_map('strtoupper', $header));
+
+            // Validate required headers
+            $requiredHeaders = ['KODE_DAERAH', 'DSRT', 'NO_ART', 'NAMA_KRT', 'NAMA_ART', 'ANOMALI'];
+            foreach ($requiredHeaders as $requiredHeader) {
+                if (!isset($headerMap[$requiredHeader])) {
+                    throw new \Exception("Missing required column: {$requiredHeader}");
+                }
+            }
+
+            // SYNC Mode: Clear anomaly data, then insert new records
+            AnomalyData::where('activity_id', $activity->id)->delete();
+
+            $inserted = 0;
+            $skipped = 0;
+
+            while (($row = fgetcsv($handle)) !== false) {
+                // Extract fields based on header mapping
+                $kodeDaerah = trim($row[$headerMap['KODE_DAERAH']] ?? '');
+                $kecamatan = trim($row[$headerMap['KEC'] ?? -1] ?? '');
+                $desa = trim($row[$headerMap['DESA'] ?? -1] ?? '');
+                $dsrt = trim($row[$headerMap['DSRT']] ?? '');
+                $noArt = intval($row[$headerMap['NO_ART']] ?? 0);
+                $namaKrt = trim($row[$headerMap['NAMA_KRT']] ?? '');
+                $namaArt = trim($row[$headerMap['NAMA_ART']] ?? '');
+                $link = trim($row[$headerMap['LINK'] ?? -1] ?? '');
+                $anomali = trim($row[$headerMap['ANOMALI']] ?? '');
+
+                // Skip if required fields are empty
+                if (!$kodeDaerah || !$dsrt || !$namaKrt || !$namaArt) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Skip if no anomali
+                if (empty($anomali)) {
+                    $skipped++;
+                    continue;
+                }
+
+                // Insert anomaly data
+                AnomalyData::create([
+                    'activity_id' => $activity->id,
+                    'kode_daerah' => $kodeDaerah,
+                    'kecamatan' => $kecamatan,
+                    'desa' => $desa,
+                    'dsrt' => $dsrt,
+                    'no_art' => $noArt,
+                    'nama_krt' => $namaKrt,
+                    'nama_art' => $namaArt,
+                    'link' => !empty($link) ? $link : null,
+                    'anomali' => $anomali,
+                ]);
+
+                $inserted++;
+            }
+
+            fclose($handle);
+
+            // Update activity's last_data_upload_at
+            $filename = $file->getClientOriginalName();
+            $activity->update(['last_data_upload_at' => now()]);
+
+            // Log upload history
+            $activity->uploadHistories()->create([
+                'uploaded_by' => auth()->id(),
+                'file_type' => 'anomaly_csv',
+                'original_filename' => $filename,
+                'stored_filename' => $filename,
+                'file_size' => $file->getSize(),
+                'records_imported' => $inserted,
+                'status' => 'completed',
+            ]);
+
+            $message = "Anomaly CSV uploaded successfully! Imported: {$inserted}.";
+            if ($skipped > 0) $message .= " Skipped: {$skipped} (missing required fields).";
+
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error uploading Anomaly CSV: ' . $e->getMessage());
         }
     }
 
