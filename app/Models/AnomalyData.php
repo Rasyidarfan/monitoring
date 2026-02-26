@@ -18,7 +18,8 @@ class AnomalyData extends Model
         'nama_krt',
         'nama_art',
         'link',
-        'anomali'
+        'anomali',
+        'checked'
     ];
 
     public function activity()

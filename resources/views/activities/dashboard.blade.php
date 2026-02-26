@@ -534,10 +534,56 @@
 
             <!-- Tab: Anomali -->
             <div id="tab-anomali" class="tab-content hidden">
-                <div class="space-y-2 sm:space-y-0 sm:flex sm:justify-between sm:items-center mb-4">
-                    <h3 class="text-base sm:text-lg font-semibold text-gray-800">Data Anomali Per Kepala Keluarga</h3>
-                    <input type="text" id="searchAnomali" placeholder="🔍 Cari KK..."
-                        class="w-full sm:w-auto border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 mt-2 sm:mt-0">
+                <div class="space-y-4">
+                    <!-- Header and Search -->
+                    <div class="space-y-2 sm:space-y-0 sm:flex sm:justify-between sm:items-center">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-800">Data Anomali Per Kepala Keluarga</h3>
+                        <div class="flex flex-col gap-2 sm:flex-row sm:gap-2 mt-2 sm:mt-0">
+                            <input type="text" id="searchAnomali" placeholder="🔍 Cari KK..."
+                                class="w-full sm:w-auto border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                            <select id="filterAnomalyPj" class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                                <option value="">Semua PJ</option>
+                                @foreach(array_unique(array_filter(array_column($anomalyCards, 'pj_name'))) as $pj)
+                                    <option value="{{ $pj }}">{{ $pj }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Anomaly Statistics per PJ -->
+                    @if(count($anomalyStats) > 0)
+                        <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                            <h4 class="text-sm font-semibold text-gray-800 mb-3">Status Pengecekan Anomali Per PJ</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                @foreach($anomalyStats as $stat)
+                                    <div class="border border-gray-200 rounded-lg p-3">
+                                        <div class="font-medium text-sm text-gray-900 mb-2">{{ $stat['pj_name'] }}</div>
+                                        <div class="flex gap-4 text-xs">
+                                            <div>
+                                                <div class="text-gray-500">Belum Dicek</div>
+                                                <div class="text-lg font-bold text-orange-600">{{ $stat['unchecked'] }}</div>
+                                            </div>
+                                            <div>
+                                                <div class="text-gray-500">Sudah Dicek</div>
+                                                <div class="text-lg font-bold text-green-600">{{ $stat['checked'] }}</div>
+                                            </div>
+                                            <div class="text-right flex-1">
+                                                <div class="text-gray-500">Total</div>
+                                                <div class="text-lg font-bold text-gray-900">{{ $stat['total'] }}</div>
+                                            </div>
+                                        </div>
+                                        @php
+                                            $pctChecked = $stat['total'] > 0 ? round(($stat['checked'] / $stat['total']) * 100) : 0;
+                                        @endphp
+                                        <div class="mt-2 h-2 bg-gray-200 rounded overflow-hidden">
+                                            <div style="width: {{ $pctChecked }}%" class="h-full bg-green-500"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-600 mt-1 text-center">{{ $pctChecked }}% selesai</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 @if(count($anomalyCards) > 0)
@@ -545,13 +591,19 @@
                     <div class="space-y-4">
                         @foreach($anomalyCards as $card)
                             <div class="anomaly-card bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
-                                data-search="{{ strtolower($card['nama_krt'] . ' ' . $card['kecamatan'] . ' ' . $card['desa']) }}">
+                                data-search="{{ strtolower($card['nama_krt'] . ' ' . $card['kecamatan'] . ' ' . $card['desa']) }}"
+                                data-pj="{{ $card['pj_name'] ?? 'Belum ditentukan' }}">
 
-                                <!-- Header: Wilayah + PJ -->
+                                <!-- Header: Wilayah + PJ + Checkbox -->
                                 <div class="mb-3">
-                                    <div class="flex justify-between items-start gap-2">
-                                        <div>
-                                            <div class="font-bold text-gray-900">{{ $card['nama_krt'] }}</div>
+                                    <div class="flex justify-between items-start gap-3">
+                                        <div class="flex-1">
+                                            <div class="font-bold text-gray-900 flex items-center gap-2">
+                                                <input type="checkbox" class="check-all-kk rounded w-4 h-4 text-green-600"
+                                                    data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
+                                                    @if($card['all_checked']) checked @endif>
+                                                {{ $card['nama_krt'] }}
+                                            </div>
                                             <div class="text-sm text-gray-600 mt-1">
                                                 {{ $card['kecamatan'] }} - {{ $card['desa'] }}
                                             </div>
@@ -565,16 +617,29 @@
                                     </div>
                                 </div>
 
-                                <!-- List ART dengan Anomali -->
+                                <!-- List ART dengan Anomali dan Checkbox -->
                                 <div class="space-y-3 mt-3">
+                                    @php
+                                        $kkLink = null;
+                                        $allLinks = array_filter(array_column($card['art_list'], 'link'));
+                                        if (!empty($allLinks)) {
+                                            $kkLink = reset($allLinks);
+                                        }
+                                    @endphp
                                     @foreach($card['art_list'] as $art)
-                                        <div class="bg-gray-50 rounded p-3 border border-gray-100">
-                                            <div class="font-medium text-sm text-gray-900 mb-2">
-                                                ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}
+                                        <div class="bg-gray-50 rounded p-3 border border-gray-100 art-item">
+                                            <div class="flex items-start justify-between gap-2 mb-2">
+                                                <div class="font-medium text-sm text-gray-900 flex-1">
+                                                    <input type="checkbox" class="anomaly-checkbox rounded w-4 h-4 text-green-600"
+                                                        data-anomaly-id="{{ $art['id'] }}"
+                                                        data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
+                                                        @if($art['checked']) checked @endif>
+                                                    <span class="ml-1">ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}</span>
+                                                </div>
                                             </div>
 
                                             @if(count($art['anomali_details']) > 0)
-                                                <div class="space-y-1.5">
+                                                <div class="space-y-1.5 ml-6">
                                                     @foreach($art['anomali_details'] as $anomali)
                                                         <div class="flex items-start gap-2 text-xs">
                                                             <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap">
@@ -585,18 +650,21 @@
                                                     @endforeach
                                                 </div>
                                             @else
-                                                <div class="text-xs text-gray-500">Tidak ada anomali</div>
-                                            @endif
-
-                                            @if($art['link'])
-                                                <a href="{{ $art['link'] }}" target="_blank" rel="noopener noreferrer"
-                                                    class="text-blue-600 hover:text-blue-800 text-xs mt-2 inline-block">
-                                                    🔗 Lihat di FASIH
-                                                </a>
+                                                <div class="text-xs text-gray-500 ml-6">Tidak ada anomali</div>
                                             @endif
                                         </div>
                                     @endforeach
                                 </div>
+
+                                <!-- Single Link per KK at bottom -->
+                                @if($kkLink)
+                                    <div class="mt-3 pt-3 border-t border-gray-200">
+                                        <a href="{{ $kkLink }}" target="_blank" rel="noopener noreferrer"
+                                            class="text-blue-600 hover:text-blue-800 text-xs font-medium inline-flex items-center gap-1">
+                                            🔗 Lihat di FASIH
+                                        </a>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -798,16 +866,81 @@
     if (filterKabupatenSelect) filterKabupatenSelect.addEventListener('change', filterTable);
     if (filterPjSelect) filterPjSelect.addEventListener('change', filterTable);
 
-    // Search Anomali
+    // Search and Filter Anomali
     const searchAnomalyInput = document.getElementById('searchAnomali');
-    if (searchAnomalyInput) {
-        searchAnomalyInput.addEventListener('input', (e) => {
-            const term = e.target.value.toLowerCase();
-            document.querySelectorAll('.anomaly-card').forEach(card => {
-                const searchText = card.dataset.search || '';
-                card.style.display = searchText.includes(term) ? '' : 'none';
-            });
+    const filterAnomalyPjSelect = document.getElementById('filterAnomalyPj');
+
+    function filterAnomalies() {
+        const searchTerm = searchAnomalyInput?.value.toLowerCase() || '';
+        const selectedPj = filterAnomalyPjSelect?.value || '';
+
+        document.querySelectorAll('.anomaly-card').forEach(card => {
+            const searchText = card.dataset.search || '';
+            const pj = card.dataset.pj || '';
+
+            const matchesSearch = searchText.includes(searchTerm);
+            const matchesPj = !selectedPj || pj === selectedPj;
+
+            card.style.display = (matchesSearch && matchesPj) ? '' : 'none';
         });
     }
+
+    if (searchAnomalyInput) searchAnomalyInput.addEventListener('input', filterAnomalies);
+    if (filterAnomalyPjSelect) filterAnomalyPjSelect.addEventListener('change', filterAnomalies);
+
+    // Toggle Anomaly Check Status
+    document.querySelectorAll('.anomaly-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+            const anomalyId = e.target.dataset.anomalyId;
+            const kkKey = e.target.dataset.kk;
+
+            try {
+                const response = await fetch(`/admin/anomaly/${anomalyId}/toggle-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Update checkbox state
+                    e.target.checked = data.checked;
+
+                    // Check if all checkboxes in this KK are checked
+                    const kkCheckboxes = document.querySelectorAll(`.anomaly-checkbox[data-kk="${kkKey}"]`);
+                    const allChecked = Array.from(kkCheckboxes).every(cb => cb.checked);
+
+                    // Update the KK-level checkbox
+                    const kkCheckbox = document.querySelector(`.check-all-kk[data-kk="${kkKey}"]`);
+                    if (kkCheckbox) {
+                        kkCheckbox.checked = allChecked;
+                    }
+                } else {
+                    e.target.checked = !e.target.checked;
+                    alert('Error updating check status');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                e.target.checked = !e.target.checked;
+                alert('Error updating check status');
+            }
+        });
+    });
+
+    // Toggle all checkboxes for a KK
+    document.querySelectorAll('.check-all-kk').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            const kkKey = e.target.dataset.kk;
+            const isChecked = e.target.checked;
+
+            document.querySelectorAll(`.anomaly-checkbox[data-kk="${kkKey}"]`).forEach(cb => {
+                cb.checked = isChecked;
+                cb.dispatchEvent(new Event('change'));
+            });
+        });
+    });
 </script>
 @endsection

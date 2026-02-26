@@ -67,4 +67,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
     // Batch Update PJ Mappings
     Route::post('kegiatan/{activity}/batch-update-pj', [ActivityController::class, 'batchUpdatePjMapping'])->name('activities.batch-update-pj');
+
+    // Update Anomaly Check Status
+    Route::post('anomaly/{anomalyData}/toggle-check', [ActivityDashboardController::class, 'toggleAnomalyCheck'])->name('anomaly.toggle-check');
 });

@@ -35,6 +35,9 @@ class ActivityDashboardController extends Controller
         // Get anomaly cards data
         $anomalyCards = $this->getAnomalyCards($activity);
 
+        // Get anomaly statistics per PJ
+        $anomalyStats = $this->getAnomalyStatsByPj($activity);
+
         return view('activities.dashboard', [
             'activity' => $activity,
             'regencyData' => $regencyData,
@@ -42,6 +45,7 @@ class ActivityDashboardController extends Controller
             'villageData' => $villageData,
             'metrics' => $metrics,
             'anomalyCards' => $anomalyCards,
+            'anomalyStats' => $anomalyStats,
         ]);
     }
 
@@ -264,7 +268,7 @@ class ActivityDashboardController extends Controller
     }
 
     /**
-     * Get anomaly cards grouped by KK (Kepala Keluarga)
+     * Get anomaly cards grouped by KK (Kepala Keluarga) with check status
      */
     protected function getAnomalyCards(Activity $activity): array
     {
@@ -296,17 +300,24 @@ class ActivityDashboardController extends Controller
                 ->where('village_code', $villageCode)
                 ->first();
 
-            // Build ART list with anomali details
+            // Build ART list with anomali details and check status
             $artWithAnomalies = [];
+            $allChecked = true;
             foreach ($artList as $art) {
                 $anomalyDetails = $art->getAnomalyDetails();
 
                 $artWithAnomalies[] = [
+                    'id' => $art->id,
                     'no_art' => $art->no_art,
                     'nama_art' => $art->nama_art,
                     'link' => $art->link,
+                    'checked' => (bool) $art->checked,
                     'anomali_details' => $anomalyDetails,
                 ];
+
+                if (!$art->checked) {
+                    $allChecked = false;
+                }
             }
 
             // Create card
@@ -318,11 +329,56 @@ class ActivityDashboardController extends Controller
                 'nama_krt' => $firstArt->nama_krt,
                 'pj_name' => $pjMapping?->pj_name ?? null,
                 'pj_code' => $pjMapping?->pj_code ?? null,
+                'all_checked' => $allChecked,
                 'art_list' => $artWithAnomalies,
             ];
         }
 
         return $cards;
+    }
+
+    /**
+     * Get anomaly statistics per PJ (unchecked vs checked counts)
+     */
+    protected function getAnomalyStatsByPj(Activity $activity): array
+    {
+        $stats = AnomalyData::where('anomaly_data.activity_id', $activity->id)
+            ->leftJoin('pj_mappings', function($join) use ($activity) {
+                $join->on(DB::raw('SUBSTRING(anomaly_data.kode_daerah, 1, 10)'), '=', 'pj_mappings.village_code')
+                     ->where('pj_mappings.activity_id', $activity->id);
+            })
+            ->selectRaw('
+                COALESCE(pj_mappings.pj_name, "Belum ditentukan") as pj_name,
+                SUM(CASE WHEN anomaly_data.checked = 0 THEN 1 ELSE 0 END) as unchecked,
+                SUM(CASE WHEN anomaly_data.checked = 1 THEN 1 ELSE 0 END) as checked
+            ')
+            ->groupBy('pj_name')
+            ->orderBy('pj_name')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'pj_name' => $item->pj_name,
+                    'unchecked' => $item->unchecked ?? 0,
+                    'checked' => $item->checked ?? 0,
+                    'total' => ($item->unchecked ?? 0) + ($item->checked ?? 0),
+                ];
+            })
+            ->toArray();
+
+        return $stats;
+    }
+
+    /**
+     * Toggle anomaly check status (AJAX endpoint)
+     */
+    public function toggleAnomalyCheck(AnomalyData $anomalyData)
+    {
+        $anomalyData->update(['checked' => !$anomalyData->checked]);
+
+        return response()->json([
+            'success' => true,
+            'checked' => (bool) $anomalyData->checked,
+        ]);
     }
 
     /**
