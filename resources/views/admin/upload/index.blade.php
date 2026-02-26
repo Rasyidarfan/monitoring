@@ -31,31 +31,38 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Upload JSON (Anomaly Master Data) -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Upload JSON (Anomali Master Data)</h3>
-            <form action="{{ route('upload.anomaly-json', $activity) }}" method="POST" enctype="multipart/form-data">
+            <!-- Upload ZIP -->
+        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📦 Upload ZIP (Batch Upload)</h3>
+            <form action="{{ route('upload.zip', $activity) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select Anomaly JSON File
+                            Select ZIP File
                         </label>
                         <input type="file"
-                               name="anomaly_json_file"
-                               accept=".json,.txt"
+                               name="zip_file"
+                               accept=".zip"
                                class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
                                required>
                         <p class="text-xs text-gray-500 mt-1">
-                            Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+                            ZIP must contain <code>query_1.csv</code>. File <code>query_2.csv</code> will be ignored.
                         </p>
                     </div>
                     <button type="submit"
-                            class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
-                        Upload Anomaly JSON
+                            class="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700">
+                        Upload ZIP
                     </button>
                 </div>
             </form>
+            @if($activity->zip_filename)
+                <div class="mt-4 pt-4 border-t">
+                    <p class="text-sm text-gray-600">
+                        <strong>Last uploaded:</strong> {{ $activity->zip_filename }}
+                    </p>
+                </div>
+            @endif
         </div>
 
         <!-- Upload JSON (PJ Mapping) -->
@@ -119,6 +126,33 @@
             </form>
         </div>
 
+        <!-- Upload JSON (Anomaly Master Data) -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Upload JSON (Anomali Master Data)</h3>
+            <form action="{{ route('upload.anomaly-json', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Anomaly JSON File
+                        </label>
+                        <input type="file"
+                               name="anomaly_json_file"
+                               accept=".json,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+                        Upload Anomaly JSON
+                    </button>
+                </div>
+            </form>
+        </div>
+        
         <!-- Upload Anomaly CSV -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali</h3>
@@ -144,40 +178,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-
-        <!-- Upload ZIP -->
-        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">📦 Upload ZIP (Batch Upload)</h3>
-            <form action="{{ route('upload.zip', $activity) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select ZIP File
-                        </label>
-                        <input type="file"
-                               name="zip_file"
-                               accept=".zip"
-                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">
-                            ZIP must contain <code>query_1.csv</code>. File <code>query_2.csv</code> will be ignored.
-                        </p>
-                    </div>
-                    <button type="submit"
-                            class="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700">
-                        Upload ZIP
-                    </button>
-                </div>
-            </form>
-            @if($activity->zip_filename)
-                <div class="mt-4 pt-4 border-t">
-                    <p class="text-sm text-gray-600">
-                        <strong>Last uploaded:</strong> {{ $activity->zip_filename }}
-                    </p>
-                </div>
-            @endif
         </div>
     </div>
 

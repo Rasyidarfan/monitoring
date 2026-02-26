@@ -370,15 +370,36 @@ class ActivityDashboardController extends Controller
 
     /**
      * Toggle anomaly check status (AJAX endpoint)
+     * Only allows marking as checked (false -> true), prevents unchecking
      */
     public function toggleAnomalyCheck(AnomalyData $anomalyData)
     {
-        $anomalyData->update(['checked' => !$anomalyData->checked]);
+        try {
+            // Check if the anomaly is already checked - prevent unchecking
+            if ($anomalyData->checked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anomali ini sudah diperiksa dan tidak dapat diubah kembali.',
+                    'checked' => true,
+                ], 422);
+            }
 
-        return response()->json([
-            'success' => true,
-            'checked' => (bool) $anomalyData->checked,
-        ]);
+            // Only allow checking (false -> true), not unchecking
+            $anomalyData->update(['checked' => true]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status pengecekan berhasil diperbarui.',
+                'checked' => true,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage(),
+                'checked' => (bool) $anomalyData->checked,
+            ], 500);
+        }
     }
 
     /**

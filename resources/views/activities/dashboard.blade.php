@@ -592,9 +592,22 @@
                     <!-- Cards Container -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         @foreach($anomalyCards as $card)
+                            @php
+                                $assignmentId = null;
+                                if (!empty($card['art_list'])) {
+                                    $firstArt = reset($card['art_list']);
+                                    if ($firstArt['link']) {
+                                        preg_match('/assignment-detail\/([a-f0-9\-]+)/', $firstArt['link'], $matches);
+                                        if (!empty($matches[1])) {
+                                            $assignmentId = $matches[1];
+                                        }
+                                    }
+                                }
+                            @endphp
                             <div class="anomaly-card bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
                                 data-search="{{ strtolower($card['nama_krt'] . ' ' . $card['kecamatan'] . ' ' . $card['desa']) }}"
-                                data-pj="{{ $card['pj_name'] ?? 'Belum ditentukan' }}">
+                                data-pj="{{ $card['pj_name'] ?? 'Belum ditentukan' }}"
+                                data-assignment-id="{{ $assignmentId }}">
 
                                 <!-- Header: Wilayah + PJ + Checkbox -->
                                 <div class="mb-3">
@@ -1032,16 +1045,10 @@
         document.querySelectorAll('.anomaly-card').forEach(card => {
             // Check if card is visible
             if (card.style.display !== 'none') {
-                // Get all links from the card
-                const links = card.querySelectorAll('a[href*="assignment-detail"]');
-                links.forEach(link => {
-                    // Extract assignment ID from link: /assignment-detail/{id_assignment}/{id_survey}
-                    const href = link.getAttribute('href');
-                    const match = href.match(/assignment-detail\/(\d+)/);
-                    if (match && match[1]) {
-                        assignmentIds.push(match[1]);
-                    }
-                });
+                const assignmentId = card.dataset.assignmentId;
+                if (assignmentId) {
+                    assignmentIds.push(assignmentId);
+                }
             }
         });
 
