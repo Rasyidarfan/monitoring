@@ -374,8 +374,13 @@
                     </div>
                     </div>
 
-                    <!-- Chart: Perbandingan Progress PJ (hidden) -->
-                    <!-- Replaced by anomaly statistics in Tab Anomali -->
+                    <!-- Chart (hidden di mobile) -->
+                    <div class="hidden md:block mt-6">
+                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress PJ</h4>
+                        <div id="pjChartContainer" class="relative">
+                            <canvas id="pjChart"></canvas>
+                        </div>
+                    </div>
                 @else
                     <p class="text-gray-500">Belum ada data PJ. Upload file JSON mapping PJ terlebih dahulu.</p>
                 @endif
@@ -763,34 +768,92 @@
         });
     }
 
-    // Chart: Per PJ (Horizontal Bar) - REMOVED
-    // Replaced by anomaly statistics in Tab Anomali
+    // Chart: Per PJ (Horizontal Bar - 100% Stacked - All PJ)
+    const pjData = @json($pjData);
+    if (pjData.length > 0) {
+        // Set container height dynamis berdasarkan jumlah PJ
+        const containerHeight = Math.max(300, pjData.length * 40);
+        document.getElementById('pjChartContainer').style.height = containerHeight + 'px';
+
+        const ctxPj = document.getElementById('pjChart').getContext('2d');
+        new Chart(ctxPj, {
+            type: 'bar',
+            data: {
+                labels: pjData.map(p => p.pj_name),
+                datasets: [
+                    {
+                        label: 'Open',
+                        data: pjData.map(p => p.pct_open),
+                        backgroundColor: 'rgba(252, 211, 77, 0.9)',
+                    },
+                    {
+                        label: 'Submitted',
+                        data: pjData.map(p => p.pct_submitted),
+                        backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                    },
+                    {
+                        label: 'Approved',
+                        data: pjData.map(p => p.pct_approved),
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    },
+                    {
+                        label: 'Rejected',
+                        data: pjData.map(p => p.pct_rejected),
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    y: { stacked: true }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.x.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     // Search & Filter Desa
     const searchInput = document.getElementById('searchDesa');
     const filterKabupatenSelect = document.getElementById('filterKabupaten');
     const filterPjSelect = document.getElementById('filterPj');
-    const rows = document.querySelectorAll('.village-row');
 
     function filterTable() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const selectedRegency = filterKabupatenSelect.value;
-        const selectedPj = filterPjSelect.value;
+        const searchTerm = searchInput?.value.toLowerCase() || '';
+        const selectedRegency = filterKabupatenSelect?.value || '';
+        const selectedPj = filterPjSelect?.value || '';
 
-        rows.forEach(row => {
-            const villageName = row.dataset.village;
-            const regencyName = row.dataset.regency;
-            const pjName = row.dataset.pj;
+        document.querySelectorAll('.village-row').forEach(row => {
+            const villageName = row.dataset.village || '';
+            const regencyName = row.dataset.regency || '';
+            const pjName = row.dataset.pj || '';
 
             const matchesSearch = villageName.includes(searchTerm);
             const matchesRegency = !selectedRegency || regencyName === selectedRegency;
             const matchesPj = !selectedPj || pjName === selectedPj;
 
-            if (matchesSearch && matchesRegency && matchesPj) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-            }
+            row.style.display = (matchesSearch && matchesRegency && matchesPj) ? '' : 'none';
         });
     }
 
@@ -803,11 +866,11 @@
     const filterAnomalyPjSelect = document.getElementById('filterAnomalyPj');
 
     function filterAnomalies() {
-        const searchTerm = searchAnomalyInput?.value.toLowerCase() || '';
+        const searchTerm = (searchAnomalyInput?.value || '').toLowerCase();
         const selectedPj = filterAnomalyPjSelect?.value || '';
 
         document.querySelectorAll('.anomaly-card').forEach(card => {
-            const searchText = card.dataset.search || '';
+            const searchText = (card.dataset.search || '').toLowerCase();
             const pj = card.dataset.pj || '';
 
             const matchesSearch = searchText.includes(searchTerm);
