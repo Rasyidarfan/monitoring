@@ -372,7 +372,6 @@
                             </tbody>
                         </table>
                     </div>
-                    </div>
 
                     <!-- Chart (hidden di mobile) -->
                     <div class="hidden md:block mt-6">
@@ -547,6 +546,9 @@
                                     <option value="{{ $pj }}">{{ $pj }}</option>
                                 @endforeach
                             </select>
+                            <button id="copyAssignmentIds" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm font-medium whitespace-nowrap">
+                                📋 Copy ID Assignment
+                            </button>
                         </div>
                     </div>
 
@@ -588,7 +590,7 @@
 
                 @if(count($anomalyCards) > 0)
                     <!-- Cards Container -->
-                    <div class="space-y-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         @foreach($anomalyCards as $card)
                             <div class="anomaly-card bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
                                 data-search="{{ strtolower($card['nama_krt'] . ' ' . $card['kecamatan'] . ' ' . $card['desa']) }}"
@@ -601,7 +603,7 @@
                                             <div class="font-bold text-gray-900 flex items-center gap-2">
                                                 <input type="checkbox" class="check-all-kk rounded w-4 h-4 text-green-600"
                                                     data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-                                                    @if($card['all_checked']) checked @endif>
+                                                    @if($card['all_checked']) checked disabled @endif>
                                                 {{ $card['nama_krt'] }}
                                             </div>
                                             <div class="text-sm text-gray-600 mt-1">
@@ -633,7 +635,7 @@
                                                     <input type="checkbox" class="anomaly-checkbox rounded w-4 h-4 text-green-600"
                                                         data-anomaly-id="{{ $art['id'] }}"
                                                         data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-                                                        @if($art['checked']) checked @endif>
+                                                        @if($art['checked']) checked disabled @endif>
                                                     <span class="ml-1">ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}</span>
                                                 </div>
                                             </div>
@@ -686,61 +688,18 @@
 </div>
 
 <script>
-    // Add CSS to hide charts in hidden tabs
-    const style = document.createElement('style');
-    style.textContent = `
-        /* Hide chart containers and their wrapper divs in hidden tabs */
-        .tab-content.hidden #regencyChart,
-        .tab-content.hidden #pjChart,
-        .tab-content.hidden #pjChartContainer {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-            width: 0 !important;
-            height: 0 !important;
+    // Chart visibility control
+    function ensureChartVisibility(activeTab) {
+        const regencyChartWrapper = document.querySelector('#tab-kabupaten .hidden.md\\:block:has(#regencyChart)');
+        const pjChartWrapper = document.querySelector('#tab-pj .hidden.md\\:block:has(#pjChart)');
+
+        if (regencyChartWrapper) {
+            regencyChartWrapper.style.display = activeTab === 'kabupaten' ? 'block' : 'none';
         }
-
-        /* Ensure charts show in correct tabs */
-        #tab-kabupaten #regencyChart,
-        #tab-pj #pjChart {
-            display: block !important;
-            visibility: visible !important;
-            pointer-events: auto !important;
-            width: auto !important;
-            height: auto !important;
-        }
-    `;
-    document.head.appendChild(style);
-
-    // Hide chart container wrapper divs in tabs where they don't belong
-    function hideChartWrappers() {
-        const desaTab = document.getElementById('tab-desa');
-        const anomaliTab = document.getElementById('tab-anomali');
-        const kabupatenTab = document.getElementById('tab-kabupaten');
-        const pjTab = document.getElementById('tab-pj');
-
-        if (desaTab) {
-            const regencyChartWrapper = desaTab.querySelector('.hidden.md\\:block')?.parentElement?.querySelector('.hidden.md\\:block:has(canvas)');
-            const chartDivs = desaTab.querySelectorAll('div.hidden.md\\:block');
-            chartDivs.forEach(div => {
-                if (div.querySelector('#regencyChart') || div.querySelector('#pjChart')) {
-                    div.style.display = 'none !important';
-                }
-            });
-        }
-
-        if (anomaliTab) {
-            const chartDivs = anomaliTab.querySelectorAll('div.hidden.md\\:block');
-            chartDivs.forEach(div => {
-                if (div.querySelector('#regencyChart') || div.querySelector('#pjChart')) {
-                    div.style.display = 'none !important';
-                }
-            });
+        if (pjChartWrapper) {
+            pjChartWrapper.style.display = activeTab === 'pj' ? 'block' : 'none';
         }
     }
-
-    // Call on page load and when tabs switch
-    hideChartWrappers();
 
     // Chart data and instances
     const regencyData = @json($regencyData);
@@ -921,8 +880,8 @@
             });
             document.getElementById(`tab-${tabName}`).classList.remove('hidden');
 
-            // Hide chart wrappers in non-target tabs
-            hideChartWrappers();
+            // Ensure correct chart visibility
+            ensureChartVisibility(tabName);
 
             // Initialize charts only when their tabs become visible
             if (tabName === 'kabupaten') {
@@ -936,6 +895,7 @@
     // Initialize regency chart on page load if kabupaten tab is active
     if (document.getElementById('tab-kabupaten') && !document.getElementById('tab-kabupaten').classList.contains('hidden')) {
         initRegencyChart();
+        ensureChartVisibility('kabupaten');
     }
 
     // Search & Filter Desa
@@ -1004,9 +964,27 @@
 
                 const data = await response.json();
 
+                // Handle different HTTP status codes
+                if (!response.ok) {
+                    // Server returned an error status (4xx, 5xx)
+                    e.target.checked = data.checked; // Restore to server state
+                    alert(data.message || 'Error updating check status');
+
+                    // If already checked, disable the checkbox to prevent further attempts
+                    if (response.status === 422 && data.checked) {
+                        e.target.disabled = true;
+                    }
+                    return;
+                }
+
                 if (data.success) {
-                    // Update checkbox state
+                    // Successfully updated
                     e.target.checked = data.checked;
+
+                    // If now checked, disable the checkbox to prevent unchecking
+                    if (data.checked) {
+                        e.target.disabled = true;
+                    }
 
                     // Check if all checkboxes in this KK are checked
                     const kkCheckboxes = document.querySelectorAll(`.anomaly-checkbox[data-kk="${kkKey}"]`);
@@ -1016,15 +994,19 @@
                     const kkCheckbox = document.querySelector(`.check-all-kk[data-kk="${kkKey}"]`);
                     if (kkCheckbox) {
                         kkCheckbox.checked = allChecked;
+                        if (allChecked) {
+                            kkCheckbox.disabled = true;
+                        }
                     }
                 } else {
+                    // Unexpected failure
                     e.target.checked = !e.target.checked;
-                    alert('Error updating check status');
+                    alert(data.message || 'Error updating check status');
                 }
             } catch (error) {
                 console.error('Error:', error);
                 e.target.checked = !e.target.checked;
-                alert('Error updating check status');
+                alert('Terjadi kesalahan jaringan. Silakan coba lagi.');
             }
         });
     });
@@ -1039,6 +1021,44 @@
                 cb.checked = isChecked;
                 cb.dispatchEvent(new Event('change'));
             });
+        });
+    });
+
+    // Copy Assignment IDs from visible anomaly cards
+    document.getElementById('copyAssignmentIds').addEventListener('click', () => {
+        const assignmentIds = [];
+
+        // Get all visible anomaly cards
+        document.querySelectorAll('.anomaly-card').forEach(card => {
+            // Check if card is visible
+            if (card.style.display !== 'none') {
+                // Get all links from the card
+                const links = card.querySelectorAll('a[href*="assignment-detail"]');
+                links.forEach(link => {
+                    // Extract assignment ID from link: /assignment-detail/{id_assignment}/{id_survey}
+                    const href = link.getAttribute('href');
+                    const match = href.match(/assignment-detail\/(\d+)/);
+                    if (match && match[1]) {
+                        assignmentIds.push(match[1]);
+                    }
+                });
+            }
+        });
+
+        if (assignmentIds.length === 0) {
+            alert('Tidak ada ID assignment yang ditemukan.');
+            return;
+        }
+
+        // Format as array string: '{id1}','{id2}',...
+        const arrayString = assignmentIds.map(id => `'${id}'`).join(',');
+
+        // Copy to clipboard
+        navigator.clipboard.writeText(arrayString).then(() => {
+            alert(`✓ ${assignmentIds.length} ID assignment telah disalin ke clipboard:\n\n${arrayString}`);
+        }).catch(err => {
+            console.error('Copy to clipboard error:', err);
+            alert('Gagal menyalin ke clipboard. Silakan coba lagi.');
         });
     });
 </script>
