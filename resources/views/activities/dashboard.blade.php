@@ -689,25 +689,22 @@
     // Add CSS to hide charts in hidden tabs
     const style = document.createElement('style');
     style.textContent = `
+        .tab-content.hidden #regencyChart,
+        .tab-content.hidden #pjChart,
+        .tab-content.hidden #pjChartContainer {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
         #tab-kabupaten #regencyChart,
         #tab-pj #pjChart {
             display: block !important;
             visibility: visible !important;
             pointer-events: auto !important;
-        }
-        #tab-desa #regencyChart,
-        #tab-desa #pjChart,
-        #tab-anomali #regencyChart,
-        #tab-anomali #pjChart {
-            display: none !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
-        }
-        #tab-desa #pjChartContainer,
-        #tab-anomali #pjChartContainer,
-        #tab-desa #regencyChartContainer,
-        #tab-anomali #regencyChartContainer {
-            display: none !important;
+            width: auto !important;
+            height: auto !important;
         }
     `;
     document.head.appendChild(style);
@@ -724,6 +721,10 @@
 
         const regencyChartCanvas = document.getElementById('regencyChart');
         if (!regencyChartCanvas) return;
+
+        // Check if canvas is visible (not in a hidden tab)
+        const tabKabupaten = document.getElementById('tab-kabupaten');
+        if (tabKabupaten && tabKabupaten.classList.contains('hidden')) return;
 
         const ctxRegency = regencyChartCanvas.getContext('2d');
         regencyChartInstance = new Chart(ctxRegency, {
@@ -790,6 +791,10 @@
         const pjChartContainer = document.getElementById('pjChartContainer');
         const pjChartCanvas = document.getElementById('pjChart');
         if (!pjChartContainer || !pjChartCanvas) return;
+
+        // Check if canvas is visible (not in a hidden tab)
+        const tabPj = document.getElementById('tab-pj');
+        if (tabPj && tabPj.classList.contains('hidden')) return;
 
         // Set container height dynamis berdasarkan jumlah PJ
         const containerHeight = Math.max(300, pjData.length * 40);
