@@ -689,6 +689,7 @@
     // Add CSS to hide charts in hidden tabs
     const style = document.createElement('style');
     style.textContent = `
+        /* Hide chart containers and their wrapper divs in hidden tabs */
         .tab-content.hidden #regencyChart,
         .tab-content.hidden #pjChart,
         .tab-content.hidden #pjChartContainer {
@@ -698,6 +699,8 @@
             width: 0 !important;
             height: 0 !important;
         }
+
+        /* Ensure charts show in correct tabs */
         #tab-kabupaten #regencyChart,
         #tab-pj #pjChart {
             display: block !important;
@@ -708,6 +711,36 @@
         }
     `;
     document.head.appendChild(style);
+
+    // Hide chart container wrapper divs in tabs where they don't belong
+    function hideChartWrappers() {
+        const desaTab = document.getElementById('tab-desa');
+        const anomaliTab = document.getElementById('tab-anomali');
+        const kabupatenTab = document.getElementById('tab-kabupaten');
+        const pjTab = document.getElementById('tab-pj');
+
+        if (desaTab) {
+            const regencyChartWrapper = desaTab.querySelector('.hidden.md\\:block')?.parentElement?.querySelector('.hidden.md\\:block:has(canvas)');
+            const chartDivs = desaTab.querySelectorAll('div.hidden.md\\:block');
+            chartDivs.forEach(div => {
+                if (div.querySelector('#regencyChart') || div.querySelector('#pjChart')) {
+                    div.style.display = 'none !important';
+                }
+            });
+        }
+
+        if (anomaliTab) {
+            const chartDivs = anomaliTab.querySelectorAll('div.hidden.md\\:block');
+            chartDivs.forEach(div => {
+                if (div.querySelector('#regencyChart') || div.querySelector('#pjChart')) {
+                    div.style.display = 'none !important';
+                }
+            });
+        }
+    }
+
+    // Call on page load and when tabs switch
+    hideChartWrappers();
 
     // Chart data and instances
     const regencyData = @json($regencyData);
@@ -887,6 +920,9 @@
                 content.classList.add('hidden');
             });
             document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            // Hide chart wrappers in non-target tabs
+            hideChartWrappers();
 
             // Initialize charts only when their tabs become visible
             if (tabName === 'kabupaten') {
