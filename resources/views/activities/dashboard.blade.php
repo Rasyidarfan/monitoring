@@ -686,21 +686,47 @@
 </div>
 
 <script>
-    // Chart data
+    // Add CSS to hide charts in hidden tabs
+    const style = document.createElement('style');
+    style.textContent = `
+        #tab-kabupaten #regencyChart,
+        #tab-pj #pjChart {
+            display: block !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+        #tab-desa #regencyChart,
+        #tab-desa #pjChart,
+        #tab-anomali #regencyChart,
+        #tab-anomali #pjChart {
+            display: none !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        #tab-desa #pjChartContainer,
+        #tab-anomali #pjChartContainer,
+        #tab-desa #regencyChartContainer,
+        #tab-anomali #regencyChartContainer {
+            display: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Chart data and instances
     const regencyData = @json($regencyData);
     const pjData = @json($pjData);
-    let regencyChartInitialized = false;
-    let pjChartInitialized = false;
+    let regencyChartInstance = null;
+    let pjChartInstance = null;
 
     // Function to initialize regency chart
     function initRegencyChart() {
-        if (regencyChartInitialized || regencyData.length === 0) return;
+        if (regencyChartInstance || regencyData.length === 0) return;
 
         const regencyChartCanvas = document.getElementById('regencyChart');
         if (!regencyChartCanvas) return;
 
         const ctxRegency = regencyChartCanvas.getContext('2d');
-        new Chart(ctxRegency, {
+        regencyChartInstance = new Chart(ctxRegency, {
             type: 'bar',
             data: {
                 labels: regencyData.map(r => r.regency_name),
@@ -755,12 +781,11 @@
                 }
             }
         });
-        regencyChartInitialized = true;
     }
 
     // Function to initialize PJ chart
     function initPjChart() {
-        if (pjChartInitialized || pjData.length === 0) return;
+        if (pjChartInstance || pjData.length === 0) return;
 
         const pjChartContainer = document.getElementById('pjChartContainer');
         const pjChartCanvas = document.getElementById('pjChart');
@@ -771,7 +796,7 @@
         pjChartContainer.style.height = containerHeight + 'px';
 
         const ctxPj = pjChartCanvas.getContext('2d');
-        new Chart(ctxPj, {
+        pjChartInstance = new Chart(ctxPj, {
             type: 'bar',
             data: {
                 labels: pjData.map(p => p.pj_name),
@@ -827,7 +852,6 @@
                 }
             }
         });
-        pjChartInitialized = true;
     }
 
     // Tab Switching
@@ -851,9 +875,17 @@
 
             // Initialize charts only when their tabs become visible
             if (tabName === 'kabupaten') {
-                initRegencyChart();
+                if (regencyChartInstance) {
+                    regencyChartInstance.resize();
+                } else {
+                    initRegencyChart();
+                }
             } else if (tabName === 'pj') {
-                initPjChart();
+                if (pjChartInstance) {
+                    pjChartInstance.resize();
+                } else {
+                    initPjChart();
+                }
             }
         });
     });
