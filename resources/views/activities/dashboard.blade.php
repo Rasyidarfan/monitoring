@@ -864,6 +864,16 @@
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
 
+            // Destroy charts when leaving their tabs
+            if (tabName !== 'kabupaten' && regencyChartInstance) {
+                regencyChartInstance.destroy();
+                regencyChartInstance = null;
+            }
+            if (tabName !== 'pj' && pjChartInstance) {
+                pjChartInstance.destroy();
+                pjChartInstance = null;
+            }
+
             // Update button styles
             document.querySelectorAll('.tab-button').forEach(btn => {
                 btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
@@ -880,17 +890,9 @@
 
             // Initialize charts only when their tabs become visible
             if (tabName === 'kabupaten') {
-                if (regencyChartInstance) {
-                    regencyChartInstance.resize();
-                } else {
-                    initRegencyChart();
-                }
+                initRegencyChart();
             } else if (tabName === 'pj') {
-                if (pjChartInstance) {
-                    pjChartInstance.resize();
-                } else {
-                    initPjChart();
-                }
+                initPjChart();
             }
         });
     });
