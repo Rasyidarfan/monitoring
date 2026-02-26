@@ -686,31 +686,20 @@
 </div>
 
 <script>
-    // Tab Switching
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.addEventListener('click', () => {
-            const tabName = button.dataset.tab;
-
-            // Update button styles
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
-                btn.classList.add('border-transparent', 'text-gray-500');
-            });
-            button.classList.add('active', 'border-blue-500', 'text-blue-600');
-            button.classList.remove('border-transparent', 'text-gray-500');
-
-            // Show/hide content
-            document.querySelectorAll('.tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-        });
-    });
-
-    // Chart: Per Kabupaten (100% Stacked)
+    // Chart data
     const regencyData = @json($regencyData);
-    if (regencyData.length > 0) {
-        const ctxRegency = document.getElementById('regencyChart').getContext('2d');
+    const pjData = @json($pjData);
+    let regencyChartInitialized = false;
+    let pjChartInitialized = false;
+
+    // Function to initialize regency chart
+    function initRegencyChart() {
+        if (regencyChartInitialized || regencyData.length === 0) return;
+
+        const regencyChartCanvas = document.getElementById('regencyChart');
+        if (!regencyChartCanvas) return;
+
+        const ctxRegency = regencyChartCanvas.getContext('2d');
         new Chart(ctxRegency, {
             type: 'bar',
             data: {
@@ -766,16 +755,22 @@
                 }
             }
         });
+        regencyChartInitialized = true;
     }
 
-    // Chart: Per PJ (Horizontal Bar - 100% Stacked - All PJ)
-    const pjData = @json($pjData);
-    if (pjData.length > 0) {
+    // Function to initialize PJ chart
+    function initPjChart() {
+        if (pjChartInitialized || pjData.length === 0) return;
+
+        const pjChartContainer = document.getElementById('pjChartContainer');
+        const pjChartCanvas = document.getElementById('pjChart');
+        if (!pjChartContainer || !pjChartCanvas) return;
+
         // Set container height dynamis berdasarkan jumlah PJ
         const containerHeight = Math.max(300, pjData.length * 40);
-        document.getElementById('pjChartContainer').style.height = containerHeight + 'px';
+        pjChartContainer.style.height = containerHeight + 'px';
 
-        const ctxPj = document.getElementById('pjChart').getContext('2d');
+        const ctxPj = pjChartCanvas.getContext('2d');
         new Chart(ctxPj, {
             type: 'bar',
             data: {
@@ -832,6 +827,40 @@
                 }
             }
         });
+        pjChartInitialized = true;
+    }
+
+    // Tab Switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.dataset.tab;
+
+            // Update button styles
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            button.classList.add('active', 'border-blue-500', 'text-blue-600');
+            button.classList.remove('border-transparent', 'text-gray-500');
+
+            // Show/hide content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            // Initialize charts only when their tabs become visible
+            if (tabName === 'kabupaten') {
+                initRegencyChart();
+            } else if (tabName === 'pj') {
+                initPjChart();
+            }
+        });
+    });
+
+    // Initialize regency chart on page load if kabupaten tab is active
+    if (document.getElementById('tab-kabupaten') && !document.getElementById('tab-kabupaten').classList.contains('hidden')) {
+        initRegencyChart();
     }
 
     // Search & Filter Desa
