@@ -129,8 +129,11 @@
                 <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="desa">
                     🏘️ <span class="hidden sm:inline">Per </span>Desa
                 </button>
+                <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="petugas">
+                    👷 <span class="hidden sm:inline">Per </span>Petugas
+                </button>
                 <button class="tab-button border-b-2 border-transparent text-gray-500 hover:text-gray-700 py-3 px-3 sm:py-4 sm:px-6 font-medium text-sm sm:text-base whitespace-nowrap" data-tab="anomali">
-                    ⚠️ <span class="hidden sm:inline">Tab </span>Anomali
+                    ⚠️ Anomali
                 </button>
             </nav>
         </div>
@@ -531,6 +534,199 @@
                 @endif
             </div>
 
+            <!-- Tab: Per Petugas -->
+            <div id="tab-petugas" class="tab-content hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Breakdown Per Petugas</h3>
+                </div>
+
+                @if(count($officerData) > 0)
+                    <!-- Filter Section -->
+                    <div class="bg-white rounded-lg shadow p-4 mb-6 space-y-3">
+                        <h4 class="text-sm font-semibold text-gray-700">Filter</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <!-- Filter Petugas -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Pencacah</label>
+                                <input type="text" id="filterPetugas" placeholder="🔍 Cari pencacah..."
+                                    class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                            <!-- Filter Pengawas -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Pengawas</label>
+                                <input type="text" id="filterPengawas" placeholder="🔍 Cari pengawas..."
+                                    class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                            <!-- Filter Desa -->
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Desa</label>
+                                <input type="text" id="filterDesa" placeholder="🔍 Cari desa..."
+                                    class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mobile: Card view dengan stacked bar -->
+                    <div class="block md:hidden space-y-3 mb-6">
+                        @foreach($officerData as $officer)
+                        @php
+                            $total = $officer['total_target'] > 0 ? $officer['total_target'] : 1;
+                            $pctOpen = round(($officer['total_open'] / $total) * 100);
+                            $pctSubmitted = round(($officer['total_submitted'] / $total) * 100);
+                            $pctApproved = round(($officer['total_approved'] / $total) * 100);
+                            $pctRejected = round(($officer['total_rejected'] / $total) * 100);
+                        @endphp
+                        <div class="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                            <!-- Header -->
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="font-semibold text-gray-900 text-sm">{{ $officer['enumerator_email'] }}</div>
+                                    <div class="text-xs text-gray-500">{{ $officer['supervisor_email'] }}</div>
+                                    <div class="text-xs text-gray-500 mt-1">{{ $officer['village_count'] }} desa</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-xs text-gray-500">Target</div>
+                                    <div class="font-bold text-gray-900">{{ number_format($officer['total_target']) }}</div>
+                                </div>
+                            </div>
+
+                            <!-- Progress bar stacked -->
+                            <div class="flex h-5 rounded overflow-hidden mb-3 text-xs font-semibold text-white bg-gray-200">
+                                @if($pctOpen > 0)
+                                    <div style="width: {{ $pctOpen }}%" class="bg-amber-300" title="Open: {{ $officer['total_open'] }}"></div>
+                                @endif
+                                @if($pctSubmitted > 0)
+                                    <div style="width: {{ $pctSubmitted }}%" class="bg-blue-500" title="Submitted: {{ $officer['total_submitted'] }}"></div>
+                                @endif
+                                @if($pctApproved > 0)
+                                    <div style="width: {{ $pctApproved }}%" class="bg-green-500" title="Approved: {{ $officer['total_approved'] }}"></div>
+                                @endif
+                                @if($pctRejected > 0)
+                                    <div style="width: {{ $pctRejected }}%" class="bg-red-500" title="Rejected: {{ $officer['total_rejected'] }}"></div>
+                                @endif
+                            </div>
+
+                            <!-- Counts grid 4 kolom -->
+                            <div class="grid grid-cols-4 gap-1 text-center text-xs">
+                                <div class="bg-amber-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Open</div>
+                                    <div class="font-bold text-gray-700">{{ $officer['total_open'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $officer['pct_open'] }}%</div>
+                                </div>
+                                <div class="bg-blue-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Submitted</div>
+                                    <div class="font-bold text-blue-700">{{ $officer['total_submitted'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $officer['pct_submitted'] }}%</div>
+                                </div>
+                                <div class="bg-green-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Approved</div>
+                                    <div class="font-bold text-green-700">{{ $officer['total_approved'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $officer['pct_approved'] }}%</div>
+                                </div>
+                                <div class="bg-red-50 rounded p-1.5">
+                                    <div class="text-gray-500 text-2xs">Rejected</div>
+                                    <div class="font-bold text-red-700">{{ $officer['total_rejected'] }}</div>
+                                    <div class="text-2xs text-gray-400">{{ $officer['pct_rejected'] }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+
+                    <!-- Desktop: Tabel biasa dengan expandable desa -->
+                    <div class="hidden md:block overflow-x-auto mb-6">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1">✓</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pencacah</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengawas</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Desa</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Target</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Open</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Submitted</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Approved</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Rejected</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($officerData as $index => $officer)
+                                    <tr class="officer-row hover:bg-gray-50" data-enumerator="{{ $officer['enumerator_email'] }}" data-supervisor="{{ $officer['supervisor_email'] ?? '' }}" data-villages="{{ implode(',', array_column($officer['villages'] ?? [], 'name')) }}">
+                                        <td class="px-6 py-4 text-center">
+                                            <button class="toggle-villages text-gray-400 hover:text-gray-600 font-bold text-lg leading-none" title="Expand/collapse villages">
+                                                +
+                                            </button>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="font-medium text-gray-900">{{ $officer['enumerator_email'] }}</div>
+                                            <div class="text-xs text-gray-500">{{ $officer['village_count'] }} desa</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                            {{ $officer['supervisor_email'] ?? '-' }}
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">
+                                            <div class="villages-summary cursor-pointer" title="Click for full list">
+                                                @php
+                                                    $villageNames = array_map(fn($v) => $v['name'], $officer['villages'] ?? []);
+                                                    $summary = implode(', ', array_slice($villageNames, 0, 2));
+                                                    if (count($villageNames) > 2) {
+                                                        $summary .= '...';
+                                                    }
+                                                @endphp
+                                                {{ $summary }}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right font-semibold">
+                                            {{ number_format($officer['total_target']) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-gray-600">
+                                            {{ number_format($officer['total_open']) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-blue-600">
+                                            {{ number_format($officer['total_submitted']) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-green-600 font-semibold">
+                                            {{ number_format($officer['total_approved']) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                                            {{ number_format($officer['total_rejected']) }}
+                                        </td>
+                                    </tr>
+                                    <!-- Hidden row for expanded villages -->
+                                    <tr class="villages-expanded" style="display: none !important;">
+                                        <td colspan="9" class="px-6 py-4 bg-gray-50">
+                                            <div class="text-sm">
+                                                <div class="font-semibold text-gray-700 mb-2">Daftar Desa ({{ $officer['village_count'] }} total):</div>
+                                                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                                    @forelse($officer['villages'] ?? [] as $village)
+                                                        <div class="bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs text-gray-700 flex items-center justify-between">
+                                                            <span title="{{ $village['name'] }}">{{ substr($village['name'], 0, 20) }}{{ strlen($village['name']) > 20 ? '...' : '' }}</span>
+                                                            <span class="text-2xs text-gray-400 ml-1">({{ $village['code'] }})</span>
+                                                        </div>
+                                                    @empty
+                                                        <div class="text-gray-500">Tidak ada desa</div>
+                                                    @endforelse
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Chart (hidden di mobile) -->
+                    <div class="hidden md:block mt-6">
+                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress Petugas</h4>
+                        <div id="officerChartContainer" class="relative">
+                            <canvas id="officerChart"></canvas>
+                        </div>
+                    </div>
+                @else
+                    <p class="text-gray-500">Belum ada data petugas. Upload file JSON petugas terlebih dahulu.</p>
+                @endif
+            </div>
+
             <!-- Tab: Anomali -->
             <div id="tab-anomali" class="tab-content hidden">
                 <div class="space-y-4">
@@ -705,6 +901,7 @@
     function ensureChartVisibility(activeTab) {
         const regencyChartWrapper = document.querySelector('#tab-kabupaten .hidden.md\\:block:has(#regencyChart)');
         const pjChartWrapper = document.querySelector('#tab-pj .hidden.md\\:block:has(#pjChart)');
+        const officerChartWrapper = document.querySelector('#tab-petugas .hidden.md\\:block:has(#officerChart)');
 
         if (regencyChartWrapper) {
             regencyChartWrapper.style.display = activeTab === 'kabupaten' ? 'block' : 'none';
@@ -712,13 +909,18 @@
         if (pjChartWrapper) {
             pjChartWrapper.style.display = activeTab === 'pj' ? 'block' : 'none';
         }
+        if (officerChartWrapper) {
+            officerChartWrapper.style.display = activeTab === 'petugas' ? 'block' : 'none';
+        }
     }
 
     // Chart data and instances
     const regencyData = @json($regencyData);
     const pjData = @json($pjData);
+    const officerData = @json($officerData);
     let regencyChartInstance = null;
     let pjChartInstance = null;
+    let officerChartInstance = null;
 
     // Function to initialize regency chart
     function initRegencyChart() {
@@ -864,6 +1066,81 @@
         });
     }
 
+    // Function to initialize Officer chart
+    function initOfficerChart() {
+        if (officerChartInstance || officerData.length === 0) return;
+
+        const officerChartContainer = document.getElementById('officerChartContainer');
+        const officerChartCanvas = document.getElementById('officerChart');
+        if (!officerChartContainer || !officerChartCanvas) return;
+
+        // Check if canvas is visible (not in a hidden tab)
+        const tabPetugas = document.getElementById('tab-petugas');
+        if (tabPetugas && tabPetugas.classList.contains('hidden')) return;
+
+        // Set container height dynamis
+        const containerHeight = Math.max(300, officerData.length * 40);
+        officerChartContainer.style.height = containerHeight + 'px';
+
+        const ctxOfficer = officerChartCanvas.getContext('2d');
+        officerChartInstance = new Chart(ctxOfficer, {
+            type: 'bar',
+            data: {
+                labels: officerData.map(o => o.enumerator_email),
+                datasets: [
+                    {
+                        label: 'Open',
+                        data: officerData.map(o => o.pct_open),
+                        backgroundColor: 'rgba(252, 211, 77, 0.9)',
+                    },
+                    {
+                        label: 'Submitted',
+                        data: officerData.map(o => o.pct_submitted),
+                        backgroundColor: 'rgba(59, 130, 246, 0.9)',
+                    },
+                    {
+                        label: 'Approved',
+                        data: officerData.map(o => o.pct_approved),
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    },
+                    {
+                        label: 'Rejected',
+                        data: officerData.map(o => o.pct_rejected),
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    },
+                    y: { stacked: true }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.x.toFixed(2) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     // Tab Switching
     document.querySelectorAll('.tab-button').forEach(button => {
         button.addEventListener('click', () => {
@@ -877,6 +1154,10 @@
             if (tabName !== 'pj' && pjChartInstance) {
                 pjChartInstance.destroy();
                 pjChartInstance = null;
+            }
+            if (tabName !== 'petugas' && officerChartInstance) {
+                officerChartInstance.destroy();
+                officerChartInstance = null;
             }
 
             // Update button styles
@@ -901,6 +1182,8 @@
                 initRegencyChart();
             } else if (tabName === 'pj') {
                 initPjChart();
+            } else if (tabName === 'petugas') {
+                initOfficerChart();
             }
         });
     });
@@ -1068,5 +1351,75 @@
             alert('Gagal menyalin ke clipboard. Silakan coba lagi.');
         });
     });
+
+    // Filter Petugas, Pengawas, dan Desa
+    const filterPetugasInput = document.getElementById('filterPetugas');
+    const filterPengawasInput = document.getElementById('filterPengawas');
+    const filterDesaInput = document.getElementById('filterDesa');
+
+    function filterOfficers() {
+        const searchPetugas = (filterPetugasInput?.value || '').toLowerCase();
+        const searchPengawas = (filterPengawasInput?.value || '').toLowerCase();
+        const searchDesa = (filterDesaInput?.value || '').toLowerCase();
+
+        document.querySelectorAll('.officer-row').forEach(row => {
+            const enumerator = (row.dataset.enumerator || '').toLowerCase();
+            const supervisor = (row.dataset.supervisor || '').toLowerCase();
+            const villages = (row.dataset.villages || '').toLowerCase();
+
+            const matchesPetugas = !searchPetugas || enumerator.includes(searchPetugas);
+            const matchesPengawas = !searchPengawas || supervisor.includes(searchPengawas);
+            const matchesDesa = !searchDesa || villages.includes(searchDesa);
+
+            row.style.display = (matchesPetugas && matchesPengawas && matchesDesa) ? '' : 'none';
+
+            // Also hide the expanded villages row
+            const nextRow = row.nextElementSibling;
+            if (nextRow && nextRow.classList.contains('villages-expanded')) {
+                nextRow.style.display = 'none';
+            }
+        });
+    }
+
+    // Toggle villages expand/collapse
+    document.querySelectorAll('.toggle-villages').forEach(button => {
+        button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const row = e.target.closest('tr.officer-row');
+            if (!row) {
+                console.error('Officer row not found');
+                return;
+            }
+
+            const expandedRow = row.nextElementSibling;
+            if (!expandedRow || !expandedRow.classList.contains('villages-expanded')) {
+                console.error('Villages expanded row not found or wrong class');
+                return;
+            }
+
+            // Check current visibility
+            const computedStyle = window.getComputedStyle(expandedRow);
+            const isVisible = computedStyle.display !== 'none';
+
+            if (isVisible) {
+                // Hide the row
+                expandedRow.style.setProperty('display', 'none', 'important');
+                e.target.textContent = '+';
+                e.target.title = 'Click to expand';
+            } else {
+                // Show the row
+                expandedRow.style.setProperty('display', 'table-row', 'important');
+                e.target.textContent = '−';
+                e.target.title = 'Click to collapse';
+            }
+        });
+    });
+
+    // Add event listeners for filter inputs
+    if (filterPetugasInput) filterPetugasInput.addEventListener('input', filterOfficers);
+    if (filterPengawasInput) filterPengawasInput.addEventListener('input', filterOfficers);
+    if (filterDesaInput) filterDesaInput.addEventListener('input', filterOfficers);
 </script>
 @endsection

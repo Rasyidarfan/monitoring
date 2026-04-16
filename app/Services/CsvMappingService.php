@@ -2,6 +2,23 @@
 
 namespace App\Services;
 
+/**
+ * CSV Mapping Service
+ *
+ * Provides flexible CSV header mapping for monitoring data with support for:
+ * - Multiple header name variations (case-insensitive)
+ * - 4 Standard Categories for assignment status:
+ *   1. open - Belum disubmit (OPEN)
+ *   2. submitted - Disubmit oleh PPL (SUBMITTED BY PPL)
+ *   3. approved - Disetujui/Selesai (Approved/Completed by PML OR Admin Kabupaten OR Edited by Admin)
+ *   4. rejected - Ditolak (REJECTED BY PML)
+ *
+ * Features:
+ * - Case-insensitive header matching
+ * - Flexible header variations (Completed, Approved, Edited all map to 'approved')
+ * - Handles both query_1.csv (village-level) and query_2.csv (summary)
+ * - Automatic village code/name parsing from "[code] name" format
+ */
 class CsvMappingService
 {
     /**
@@ -28,16 +45,20 @@ class CsvMappingService
             'APPROVED BY PML',
             'Completed by PML',
             'COMPLETED BY PML',
+            'Completed by Admin Kabupaten',
+            'COMPLETED BY ADMIN KABUPATEN',
+            'Approved by Admin Kabupaten',
+            'APPROVED BY ADMIN KABUPATEN',
+            'Edited by Admin',
+            'EDITED BY ADMIN',
+            'Completed by Admin',
+            'COMPLETED BY ADMIN',
             'Approved',
             'APPROVED',
             'Completed',
             'COMPLETED',
-        ],
-        'completed' => [
-            'Completed by Admin Kabupaten',
-            'COMPLETED BY ADMIN KABUPATEN',
-            'Completed by Admin',
-            'COMPLETED BY ADMIN',
+            'Edited',
+            'EDITED',
         ],
         'rejected' => [
             'Rejected by PML',
@@ -91,7 +112,7 @@ class CsvMappingService
      *
      * @param array $row CSV row data
      * @param array $headerMap Header mapping from mapHeaders()
-     * @return array Extracted values with our field names
+     * @return array Extracted values with our field names (target, open, submitted, approved, rejected)
      */
     public function extractValues(array $row, array $headerMap): array
     {
@@ -103,13 +124,6 @@ class CsvMappingService
             } else {
                 $values[$ourField] = 0; // Default to 0 if field not found
             }
-        }
-
-        // Add 'completed' (COMPLETED BY Admin Kabupaten) to 'approved' value
-        // This ensures all approved work (by PML and Admin) is counted together
-        if (isset($values['completed'])) {
-            $values['approved'] += $values['completed'];
-            unset($values['completed']); // Remove completed from final output since it's merged
         }
 
         return $values;

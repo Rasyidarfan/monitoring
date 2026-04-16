@@ -14,6 +14,7 @@ class Activity extends Model
         'last_data_upload_at',
         'json_filename',
         'zip_filename',
+        'officer_json_filename',
     ];
 
     protected function casts(): array
@@ -37,6 +38,14 @@ class Activity extends Model
     public function pjMappings(): HasMany
     {
         return $this->hasMany(PjMapping::class);
+    }
+
+    /**
+     * Officer mappings for this activity
+     */
+    public function officerMappings(): HasMany
+    {
+        return $this->hasMany(OfficerMapping::class);
     }
 
     /**

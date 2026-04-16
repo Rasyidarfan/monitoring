@@ -323,19 +323,31 @@ class UploadController extends Controller
             }
             $zip->close();
 
-            // Look for query_1.csv (check both root and subdirectory)
-            $csvFile = null;
+            // Look for both query_1.csv and query_2.csv (check both root and subdirectory)
+            $csvFile1 = null;
+            $csvFile2 = null;
+
             if (file_exists($extractPath . '/query_1.csv')) {
-                $csvFile = $extractPath . '/query_1.csv';
+                $csvFile1 = $extractPath . '/query_1.csv';
             } else {
                 // Check subdirectories
                 $files = glob($extractPath . '/*/query_1.csv');
                 if (!empty($files)) {
-                    $csvFile = $files[0];
+                    $csvFile1 = $files[0];
                 }
             }
 
-            if (!$csvFile || !file_exists($csvFile)) {
+            if (file_exists($extractPath . '/query_2.csv')) {
+                $csvFile2 = $extractPath . '/query_2.csv';
+            } else {
+                // Check subdirectories
+                $files = glob($extractPath . '/*/query_2.csv');
+                if (!empty($files)) {
+                    $csvFile2 = $files[0];
+                }
+            }
+
+            if (!$csvFile1 || !file_exists($csvFile1)) {
                 // Clean up
                 $this->deleteDirectory($extractPath);
                 throw new \Exception('query_1.csv not found in ZIP file');
@@ -346,7 +358,9 @@ class UploadController extends Controller
 
             // Process CSV with flexible mapping
             $csvMapper = new CsvMappingService();
-            $handle = fopen($csvFile, 'r');
+
+            // ==================== PROCESS query_1.csv (Village-level details) ====================
+            $handle = fopen($csvFile1, 'r');
             $header = fgetcsv($handle);
 
             // Create flexible header mapping
@@ -425,6 +439,20 @@ class UploadController extends Controller
 
             fclose($handle);
 
+            // ==================== PROCESS query_2.csv (Summary/Total) if exists ====================
+            $query2Stats = [];
+            if ($csvFile2 && file_exists($csvFile2)) {
+                $handle = fopen($csvFile2, 'r');
+                $header = fgetcsv($handle);
+                $headerMap = $csvMapper->mapHeaders($header);
+
+                // query_2.csv usually has only 1 row with totals
+                if (($row = fgetcsv($handle)) !== false) {
+                    $query2Stats = $csvMapper->extractValues($row, $headerMap);
+                }
+                fclose($handle);
+            }
+
             // Clean up
             $this->deleteDirectory($extractPath);
 
@@ -447,9 +475,11 @@ class UploadController extends Controller
             ]);
 
             $message = "ZIP uploaded successfully!";
-            if ($inserted > 0) $message .= " Imported: {$inserted}.";
-            if ($updated > 0) $message .= " Updated: {$updated}.";
+            $message .= " query_1.csv: {$inserted} imported, {$updated} updated.";
             if ($skipped > 0) $message .= " Skipped: {$skipped} (target=0 or invalid).";
+            if (!empty($query2Stats)) {
+                $message .= " query_2.csv summary: T={$query2Stats['target']}, O={$query2Stats['open']}, S={$query2Stats['submitted']}, A={$query2Stats['approved']}, R={$query2Stats['rejected']}.";
+            }
 
             return back()->with('success', $message);
 
@@ -639,6 +669,138 @@ class UploadController extends Controller
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading Anomaly CSV: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Upload Officer JSON file
+     */
+    public function uploadOfficerJson(Request $request, Activity $activity)
+    {
+        try {
+            $request->validate([
+                'officer_json_file' => 'required|file|mimes:json,txt|max:10240',
+            ]);
+
+            $file = $request->file('officer_json_file');
+            $content = file_get_contents($file->getRealPath());
+            $data = json_decode($content, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('Invalid JSON format: ' . json_last_error_msg());
+            }
+
+            if (!is_array($data)) {
+                throw new \Exception('JSON must be an array of objects');
+            }
+
+            $created = 0;
+            $updated = 0;
+            $deleted = 0;
+            $skipped = 0;
+            $processedCodes = [];
+            $jsonVillageCodes = [];
+
+            foreach ($data as $item) {
+                // Build village code from components
+                $provinsi = $item['Provinsi'] ?? '';
+                $kabupaten = $item['Kabupaten/Kota'] ?? '';
+                $kecamatan = $item['Kecamatan'] ?? '';
+                $desa = $item['Desa/Kelurahan'] ?? '';
+
+                $villageCode = $provinsi . $kabupaten . $kecamatan . $desa;
+
+                // Validate village code length (should be 10 digits)
+                if (strlen($villageCode) !== 10 || !ctype_digit($villageCode)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $supervisorEmail = $item['Email Pengawas'] ?? null;
+                $enumeratorEmail = $item['Email Pencacah'] ?? null;
+
+                // Get target from MonitoringData or PjMapping
+                $monitoringData = $activity->monitoringData()
+                    ->where('village_code', $villageCode)
+                    ->first();
+
+                $pjMapping = $activity->pjMappings()
+                    ->where('village_code', $villageCode)
+                    ->first();
+
+                $target = 0;
+                if ($monitoringData) {
+                    $target = $monitoringData->open + $monitoringData->submitted +
+                              $monitoringData->approved + $monitoringData->rejected;
+                }
+
+                if ($pjMapping && $pjMapping->target > $target) {
+                    $target = $pjMapping->target;
+                }
+
+                // UPSERT
+                $existing = $activity->officerMappings()
+                    ->where('village_code', $villageCode)
+                    ->first();
+
+                if ($existing) {
+                    $existing->update([
+                        'supervisor_email' => $supervisorEmail,
+                        'enumerator_email' => $enumeratorEmail,
+                        'target' => max($existing->target, $target),
+                    ]);
+                    $updated++;
+                } else {
+                    $activity->officerMappings()->create([
+                        'village_code' => $villageCode,
+                        'supervisor_email' => $supervisorEmail,
+                        'enumerator_email' => $enumeratorEmail,
+                        'target' => $target,
+                    ]);
+                    $created++;
+                }
+
+                $jsonVillageCodes[] = $villageCode;
+            }
+
+            // Delete orphaned mappings (SYNC mode)
+            $toDelete = $activity->officerMappings()
+                ->whereNotIn('village_code', $jsonVillageCodes)
+                ->get();
+
+            foreach ($toDelete as $officer) {
+                $officer->delete();
+                $deleted++;
+            }
+
+            // Update activity
+            $filename = $file->getClientOriginalName();
+            $activity->update([
+                'officer_json_filename' => $filename,
+                'last_data_upload_at' => now(),
+            ]);
+
+            // Log upload history
+            $activity->uploadHistories()->create([
+                'uploaded_by' => auth()->id(),
+                'file_type' => 'officer_json',
+                'original_filename' => $filename,
+                'stored_filename' => $filename,
+                'file_size' => $file->getSize(),
+                'records_imported' => $created + $updated,
+                'status' => 'completed',
+            ]);
+
+            $message = "Officer JSON uploaded successfully!";
+            if ($created > 0) $message .= " Created {$created}.";
+            if ($updated > 0) $message .= " Updated {$updated}.";
+            if ($deleted > 0) $message .= " Deleted {$deleted}.";
+            if ($skipped > 0) $message .= " Skipped {$skipped}.";
+
+            return back()->with('success', $message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error uploading Officer JSON: ' . $e->getMessage());
         }
     }
 

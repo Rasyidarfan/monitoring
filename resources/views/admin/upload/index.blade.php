@@ -31,8 +31,8 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Upload ZIP -->
-        <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+        <!-- Row 1: Upload ZIP -->
+        <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📦 Upload ZIP (Batch Upload)</h3>
             <form action="{{ route('upload.zip', $activity) }}" method="POST" enctype="multipart/form-data">
                 @csrf
@@ -65,7 +65,88 @@
             @endif
         </div>
 
-        <!-- Upload JSON (PJ Mapping) -->
+        <!-- Row 2: Upload CSV (Monitoring Data) -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Upload CSV (Monitoring Data)</h3>
+            <form action="{{ route('upload.csv', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select CSV File
+                        </label>
+                        <input type="file"
+                               name="csv_file"
+                               accept=".csv,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Supports both old (UPPERCASE) and new (Mixed case) format
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        Upload CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Row 2: Upload JSON (Anomaly Master Data) -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Upload JSON (Anomali Master Data)</h3>
+            <form action="{{ route('upload.anomaly-json', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Anomaly JSON File
+                        </label>
+                        <input type="file"
+                               name="anomaly_json_file"
+                               accept=".json,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
+                        Upload Anomaly JSON
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Row 3: Upload Anomaly CSV -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali</h3>
+            <form action="{{ route('upload.anomaly-csv', $activity) }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Anomaly CSV File
+                        </label>
+                        <input type="file"
+                               name="anomaly_csv_file"
+                               accept=".csv,.txt"
+                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Format: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
+                        </p>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
+                        Upload Anomaly CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Row 3: Upload JSON (PJ Mapping) -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📄 Upload JSON (PJ Mapping)</h3>
             <form action="{{ route('upload.json', $activity) }}" method="POST" enctype="multipart/form-data">
@@ -99,85 +180,38 @@
             @endif
         </div>
 
-        <!-- Upload CSV (Monitoring Data) -->
+        <!-- Row 3: Upload JSON (Officer Mapping) -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">📊 Upload CSV (Monitoring Data)</h3>
-            <form action="{{ route('upload.csv', $activity) }}" method="POST" enctype="multipart/form-data">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">👥 Upload JSON (Petugas)</h3>
+            <form action="{{ route('upload.officer-json', $activity) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select CSV File
+                            Select Officer JSON File
                         </label>
                         <input type="file"
-                               name="csv_file"
-                               accept=".csv,.txt"
-                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Supports both old (UPPERCASE) and new (Mixed case) format
-                        </p>
-                    </div>
-                    <button type="submit"
-                            class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                        Upload CSV
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Upload JSON (Anomaly Master Data) -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">📋 Upload JSON (Anomali Master Data)</h3>
-            <form action="{{ route('upload.anomaly-json', $activity) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select Anomaly JSON File
-                        </label>
-                        <input type="file"
-                               name="anomaly_json_file"
+                               name="officer_json_file"
                                accept=".json,.txt"
                                class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
                                required>
                         <p class="text-xs text-gray-500 mt-1">
-                            Format: [{"No. Anomali": "A01", "Rule dg Nama Variable di FASIH": "...", "Keterangan ...": "..."}, ...]
+                            Format: [{"Provinsi": "97", "Kabupaten/Kota": "02", ..., "Email Pengawas": "...", "Email Pencacah": "..."}, ...]
                         </p>
                     </div>
                     <button type="submit"
-                            class="w-full bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">
-                        Upload Anomaly JSON
+                            class="w-full bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                        Upload Officer JSON
                     </button>
                 </div>
             </form>
-        </div>
-        
-        <!-- Upload Anomaly CSV -->
-        <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali</h3>
-            <form action="{{ route('upload.anomaly-csv', $activity) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select Anomaly CSV File
-                        </label>
-                        <input type="file"
-                               name="anomaly_csv_file"
-                               accept=".csv,.txt"
-                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Format: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
-                        </p>
-                    </div>
-                    <button type="submit"
-                            class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
-                        Upload Anomaly CSV
-                    </button>
+            @if($activity->officer_json_filename)
+                <div class="mt-4 pt-4 border-t">
+                    <p class="text-sm text-gray-600">
+                        <strong>Last uploaded:</strong> {{ $activity->officer_json_filename }}
+                    </p>
                 </div>
-            </form>
+            @endif
         </div>
     </div>
 
@@ -208,11 +242,14 @@
                                         {{ $upload->file_type === 'csv' ? 'bg-green-100 text-green-800' : '' }}
                                         {{ $upload->file_type === 'zip' ? 'bg-purple-100 text-purple-800' : '' }}
                                         {{ $upload->file_type === 'anomaly_json' ? 'bg-yellow-100 text-yellow-800' : '' }}
-                                        {{ $upload->file_type === 'anomaly_csv' ? 'bg-orange-100 text-orange-800' : '' }}">
+                                        {{ $upload->file_type === 'anomaly_csv' ? 'bg-orange-100 text-orange-800' : '' }}
+                                        {{ $upload->file_type === 'officer_json' ? 'bg-indigo-100 text-indigo-800' : '' }}">
                                         @if($upload->file_type === 'anomaly_csv')
                                             ANOMALY CSV
                                         @elseif($upload->file_type === 'anomaly_json')
                                             ANOMALY JSON
+                                        @elseif($upload->file_type === 'officer_json')
+                                            OFFICER JSON
                                         @else
                                             {{ strtoupper($upload->file_type) }}
                                         @endif

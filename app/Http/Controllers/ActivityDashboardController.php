@@ -6,6 +6,7 @@ use App\Models\Activity;
 use App\Models\Anomaly;
 use App\Models\AnomalyData;
 use App\Models\MonitoringData;
+use App\Models\OfficerMapping;
 use App\Models\PjMapping;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,6 +27,9 @@ class ActivityDashboardController extends Controller
         // Get data grouped by PJ
         $pjData = $this->getPjData($activity);
 
+        // Get data grouped by Officer (Petugas)
+        $officerData = $this->getOfficerData($activity);
+
         // Get all village data
         $villageData = $this->getVillageData($activity);
 
@@ -42,6 +46,7 @@ class ActivityDashboardController extends Controller
             'activity' => $activity,
             'regencyData' => $regencyData,
             'pjData' => $pjData,
+            'officerData' => $officerData,
             'villageData' => $villageData,
             'metrics' => $metrics,
             'anomalyCards' => $anomalyCards,
@@ -123,6 +128,105 @@ class ActivityDashboardController extends Controller
             ->toArray();
 
         return $data;
+    }
+
+    /**
+     * Get data per Officer (Petugas/Pencacah)
+     */
+    protected function getOfficerData(Activity $activity): array
+    {
+        // Get unique enumerator emails from officer_mappings
+        $officers = $activity->officerMappings()
+            ->select('enumerator_email', 'supervisor_email')
+            ->distinct()
+            ->get();
+
+        if ($officers->isEmpty()) {
+            return [];
+        }
+
+        $officerData = [];
+
+        foreach ($officers as $officer) {
+            $enumeratorEmail = $officer->enumerator_email;
+
+            if (!$enumeratorEmail) {
+                continue;
+            }
+
+            // Get village codes for this enumerator
+            $villageCodes = $activity->officerMappings()
+                ->where('enumerator_email', $enumeratorEmail)
+                ->pluck('village_code');
+
+            // Get total target
+            $totalTarget = $activity->officerMappings()
+                ->where('enumerator_email', $enumeratorEmail)
+                ->sum('target');
+
+            // Get supervisor email (take first)
+            $supervisorEmail = $activity->officerMappings()
+                ->where('enumerator_email', $enumeratorEmail)
+                ->value('supervisor_email');
+
+            // Aggregate monitoring data (if available)
+            $metricsData = MonitoringData::where('monitoring_data.activity_id', $activity->id)
+                ->whereIn('monitoring_data.village_code', $villageCodes)
+                ->selectRaw('
+                    SUM(open) as total_open,
+                    SUM(submitted) as total_submitted,
+                    SUM(approved) as total_approved,
+                    SUM(rejected) as total_rejected,
+                    COUNT(DISTINCT village_code) as village_count
+                ')
+                ->first();
+
+            // Display officer even if no monitoring data yet
+            $villageCount = $villageCodes->count();
+
+            // Get village codes with names (if available in monitoring_data, otherwise just codes)
+            $villages = $activity->monitoringData()
+                ->whereIn('village_code', $villageCodes)
+                ->select('village_code', 'village_name')
+                ->distinct()
+                ->get()
+                ->mapWithKeys(fn($md) => [$md->village_code => $md->village_name])
+                ->toArray();
+
+            // If no village names from monitoring_data, use codes
+            $villagesList = [];
+            foreach ($villageCodes as $code) {
+                $villagesList[] = [
+                    'code' => $code,
+                    'name' => $villages[$code] ?? $code,
+                ];
+            }
+
+            $total = $totalTarget > 0 ? $totalTarget : 1;
+
+            $officerData[] = [
+                'enumerator_email' => $enumeratorEmail,
+                'supervisor_email' => $supervisorEmail,
+                'village_count' => $villageCount,
+                'villages' => $villagesList,
+                'total_target' => $totalTarget,
+                'total_open' => $metricsData->total_open ?? 0,
+                'total_submitted' => $metricsData->total_submitted ?? 0,
+                'total_approved' => $metricsData->total_approved ?? 0,
+                'total_rejected' => $metricsData->total_rejected ?? 0,
+                'pct_open' => round(($metricsData->total_open ?? 0) / $total * 100, 2),
+                'pct_submitted' => round(($metricsData->total_submitted ?? 0) / $total * 100, 2),
+                'pct_approved' => round(($metricsData->total_approved ?? 0) / $total * 100, 2),
+                'pct_rejected' => round(($metricsData->total_rejected ?? 0) / $total * 100, 2),
+            ];
+        }
+
+        // Sort by total_target descending
+        usort($officerData, function ($a, $b) {
+            return $b['total_target'] <=> $a['total_target'];
+        });
+
+        return $officerData;
     }
 
     /**
