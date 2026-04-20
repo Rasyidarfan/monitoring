@@ -719,23 +719,26 @@ class UploadController extends Controller
                 $supervisorEmail = $item['Email Pengawas'] ?? null;
                 $enumeratorEmail = $item['Email Pencacah'] ?? null;
 
-                // Get target from MonitoringData or PjMapping
-                $monitoringData = $activity->monitoringData()
-                    ->where('village_code', $villageCode)
-                    ->first();
-
+                // Get target from PjMapping (primary source), fallback to MonitoringData metrics
                 $pjMapping = $activity->pjMappings()
                     ->where('village_code', $villageCode)
                     ->first();
 
                 $target = 0;
-                if ($monitoringData) {
-                    $target = $monitoringData->open + $monitoringData->submitted +
-                              $monitoringData->approved + $monitoringData->rejected;
-                }
 
-                if ($pjMapping && $pjMapping->target > $target) {
+                // Primary source: pj_mappings.target (assigned target)
+                if ($pjMapping && $pjMapping->target > 0) {
                     $target = $pjMapping->target;
+                } else {
+                    // Fallback: calculate from monitoring data metrics if available
+                    $monitoringData = $activity->monitoringData()
+                        ->where('village_code', $villageCode)
+                        ->first();
+
+                    if ($monitoringData) {
+                        $target = $monitoringData->open + $monitoringData->submitted +
+                                  $monitoringData->approved + $monitoringData->rejected;
+                    }
                 }
 
                 // UPSERT

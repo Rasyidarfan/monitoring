@@ -557,10 +557,10 @@
                                 <input type="text" id="filterPengawas" placeholder="🔍 Cari pengawas..."
                                     class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                             </div>
-                            <!-- Filter Desa -->
+                            <!-- Filter PJ -->
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Desa</label>
-                                <input type="text" id="filterDesa" placeholder="🔍 Cari desa..."
+                                <label class="block text-xs font-medium text-gray-600 mb-1">PJ</label>
+                                <input type="text" id="filterPJ" placeholder="🔍 Cari PJ..."
                                     class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
                             </div>
                         </div>
@@ -641,7 +641,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-1">✓</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pencacah</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pengawas</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Desa</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">PJ</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Target</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Open</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Submitted</th>
@@ -651,7 +651,7 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @foreach($officerData as $index => $officer)
-                                    <tr class="officer-row hover:bg-gray-50" data-enumerator="{{ $officer['enumerator_email'] }}" data-supervisor="{{ $officer['supervisor_email'] ?? '' }}" data-villages="{{ implode(',', array_column($officer['villages'] ?? [], 'name')) }}">
+                                    <tr class="officer-row hover:bg-gray-50" data-enumerator="{{ $officer['enumerator_email'] }}" data-supervisor="{{ $officer['supervisor_email'] ?? '' }}" data-pj="{{ implode(',', $officer['pj_names'] ?? []) }}" data-villages="{{ implode(',', array_column($officer['villages'] ?? [], 'name')) }}">
                                         <td class="px-6 py-4 text-center">
                                             <button class="toggle-villages text-gray-400 hover:text-gray-600 font-bold text-lg leading-none" title="Expand/collapse villages">
                                                 +
@@ -664,16 +664,13 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                             {{ $officer['supervisor_email'] ?? '-' }}
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">
-                                            <div class="villages-summary cursor-pointer" title="Click for full list">
+                                        <td class="px-6 py-4 text-sm text-gray-600" style="min-width: 200px;">
+                                            <div class="pj-summary cursor-pointer whitespace-normal" title="Click for full list">
                                                 @php
-                                                    $villageNames = array_map(fn($v) => $v['name'], $officer['villages'] ?? []);
-                                                    $summary = implode(', ', array_slice($villageNames, 0, 2));
-                                                    if (count($villageNames) > 2) {
-                                                        $summary .= '...';
-                                                    }
+                                                    $pjNames = $officer['pj_names'] ?? [];
+                                                    $summary = implode(', ', $pjNames);
                                                 @endphp
-                                                {{ $summary }}
+                                                {{ $summary ?: '-' }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right font-semibold">
@@ -692,16 +689,22 @@
                                             {{ number_format($officer['total_rejected']) }}
                                         </td>
                                     </tr>
-                                    <!-- Hidden row for expanded villages -->
+                                    <!-- Hidden row for expanded villages with PJ -->
                                     <tr class="villages-expanded" style="display: none !important;">
                                         <td colspan="9" class="px-6 py-4 bg-gray-50">
                                             <div class="text-sm">
                                                 <div class="font-semibold text-gray-700 mb-2">Daftar Desa ({{ $officer['village_count'] }} total):</div>
                                                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                                                     @forelse($officer['villages'] ?? [] as $village)
-                                                        <div class="bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs text-gray-700 flex items-center justify-between">
-                                                            <span title="{{ $village['name'] }}">{{ substr($village['name'], 0, 20) }}{{ strlen($village['name']) > 20 ? '...' : '' }}</span>
-                                                            <span class="text-2xs text-gray-400 ml-1">({{ $village['code'] }})</span>
+                                                        <div class="bg-blue-50 border border-blue-200 rounded px-2 py-1 text-xs text-gray-700">
+                                                            <div title="{{ $village['name'] }}">{{ substr($village['name'], 0, 20) }}{{ strlen($village['name']) > 20 ? '...' : '' }}</div>
+                                                            <div class="text-2xs text-gray-500 mt-0.5">
+                                                                @if($village['pj_name'])
+                                                                    {{ $village['pj_name'] }}
+                                                                @else
+                                                                    <span class="text-gray-400">-</span>
+                                                                @endif
+                                                            </div>
                                                         </div>
                                                     @empty
                                                         <div class="text-gray-500">Tidak ada desa</div>
@@ -1352,26 +1355,26 @@
         });
     });
 
-    // Filter Petugas, Pengawas, dan Desa
+    // Filter Petugas, Pengawas, dan PJ
     const filterPetugasInput = document.getElementById('filterPetugas');
     const filterPengawasInput = document.getElementById('filterPengawas');
-    const filterDesaInput = document.getElementById('filterDesa');
+    const filterPJInput = document.getElementById('filterPJ');
 
     function filterOfficers() {
         const searchPetugas = (filterPetugasInput?.value || '').toLowerCase();
         const searchPengawas = (filterPengawasInput?.value || '').toLowerCase();
-        const searchDesa = (filterDesaInput?.value || '').toLowerCase();
+        const searchPJ = (filterPJInput?.value || '').toLowerCase();
 
         document.querySelectorAll('.officer-row').forEach(row => {
             const enumerator = (row.dataset.enumerator || '').toLowerCase();
             const supervisor = (row.dataset.supervisor || '').toLowerCase();
-            const villages = (row.dataset.villages || '').toLowerCase();
+            const pj = (row.dataset.pj || '').toLowerCase();
 
             const matchesPetugas = !searchPetugas || enumerator.includes(searchPetugas);
             const matchesPengawas = !searchPengawas || supervisor.includes(searchPengawas);
-            const matchesDesa = !searchDesa || villages.includes(searchDesa);
+            const matchesPJ = !searchPJ || pj.includes(searchPJ);
 
-            row.style.display = (matchesPetugas && matchesPengawas && matchesDesa) ? '' : 'none';
+            row.style.display = (matchesPetugas && matchesPengawas && matchesPJ) ? '' : 'none';
 
             // Also hide the expanded villages row
             const nextRow = row.nextElementSibling;
@@ -1420,6 +1423,6 @@
     // Add event listeners for filter inputs
     if (filterPetugasInput) filterPetugasInput.addEventListener('input', filterOfficers);
     if (filterPengawasInput) filterPengawasInput.addEventListener('input', filterOfficers);
-    if (filterDesaInput) filterDesaInput.addEventListener('input', filterOfficers);
+    if (filterPJInput) filterPJInput.addEventListener('input', filterOfficers);
 </script>
 @endsection

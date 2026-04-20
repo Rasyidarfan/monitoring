@@ -193,12 +193,32 @@ class ActivityDashboardController extends Controller
                 ->mapWithKeys(fn($md) => [$md->village_code => $md->village_name])
                 ->toArray();
 
+            // Get PJ names for villages assigned to this enumerator
+            $pjMappings = PjMapping::where('activity_id', $activity->id)
+                ->whereIn('village_code', $villageCodes)
+                ->select('village_code', 'pj_code', 'pj_name')
+                ->get()
+                ->map(fn($pj) => [
+                    'code' => $pj->village_code,
+                    'pj_code' => $pj->pj_code,
+                    'pj_name' => $pj->pj_name,
+                ])
+                ->keyBy('code')
+                ->toArray();
+
+            // Get list of PJ names assigned to this enumerator
+            $pjNames = array_filter(array_map(fn($pj) => $pj['pj_name'] ?? null, $pjMappings));
+            $uniquePjNames = array_unique($pjNames);
+
             // If no village names from monitoring_data, use codes
+            // Include PJ name for each village
             $villagesList = [];
             foreach ($villageCodes as $code) {
+                $pjName = $pjMappings[$code]['pj_name'] ?? null;
                 $villagesList[] = [
                     'code' => $code,
                     'name' => $villages[$code] ?? $code,
+                    'pj_name' => $pjName,
                 ];
             }
 
@@ -209,6 +229,7 @@ class ActivityDashboardController extends Controller
                 'supervisor_email' => $supervisorEmail,
                 'village_count' => $villageCount,
                 'villages' => $villagesList,
+                'pj_names' => array_values($uniquePjNames),
                 'total_target' => $totalTarget,
                 'total_open' => $metricsData->total_open ?? 0,
                 'total_submitted' => $metricsData->total_submitted ?? 0,
