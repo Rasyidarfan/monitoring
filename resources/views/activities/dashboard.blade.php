@@ -841,32 +841,44 @@
                                         }
                                     @endphp
                                     @foreach($card['art_list'] as $art)
-                                        <div class="bg-gray-50 rounded p-3 border border-gray-100 art-item">
-                                            <div class="flex items-start justify-between gap-2 mb-2">
-                                                <div class="font-medium text-sm text-gray-900 flex-1">
-                                                    <input type="checkbox" class="anomaly-checkbox rounded w-4 h-4 text-green-600"
-                                                        data-anomaly-id="{{ $art['id'] }}"
-                                                        data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-                                                        @if($art['checked']) checked disabled @endif>
-                                                    <span class="ml-1">ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}</span>
-                                                </div>
-                                            </div>
+                                        <div class="bg-gray-50 rounded p-3 border border-gray-100 art-item text-sm">
+    <div class="flex items-start gap-2">
+        <input type="checkbox" class="anomaly-checkbox rounded w-4 h-4 mt-0.5 text-green-600"
+            data-anomaly-id="{{ $art['id'] }}"
+            data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
+            @if($art['checked']) checked disabled @endif>
 
-                                            @if(count($art['anomali_details']) > 0)
-                                                <div class="space-y-1.5 ml-6">
-                                                    @foreach($art['anomali_details'] as $anomali)
-                                                        <div class="flex items-start gap-2 text-xs">
-                                                            <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap">
-                                                                {{ $anomali['code'] }}
-                                                            </span>
-                                                            <span class="text-gray-700 flex-1">{{ $anomali['description'] }}</span>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <div class="text-xs text-gray-500 ml-6">Tidak ada anomali</div>
-                                            @endif
-                                        </div>
+        <div class="flex-1">
+            @if($card['no_art'] !== 0)
+                <div class="font-medium text-gray-900 mb-2">
+                    ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}
+                </div>
+            @endif
+
+            @if(count($art['anomali_details']) > 0)
+                <div class="space-y-1.5 {{ $card['no_art'] !== 0 ? 'ml-1' : '' }}">
+                    @foreach($art['anomali_details'] as $anomali)
+                        <div class="flex items-start gap-2 text-xs group">
+                            <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap cursor-help relative"
+                                title="{{ $anomali['rule'] ?? 'Tidak ada rule ditetapkan' }}">
+                                {{ $anomali['code'] }}
+                                @if($anomali['rule'])
+                                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded p-2 whitespace-normal w-48 z-50 shadow-lg">
+                                        <div class="font-semibold mb-1">Rule:</div>
+                                        {{ $anomali['rule'] }}
+                                    </div>
+                                @endif
+                            </span>
+                            <span class="text-gray-700 flex-1">{{ $anomali['description'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="text-xs text-gray-500">Tidak ada anomali</div>
+            @endif
+        </div>
+    </div>
+</div>
                                     @endforeach
                                 </div>
 

@@ -37,12 +37,16 @@ class CsvMappingService
         'submitted' => [
             'Submitted by PPL',
             'SUBMITTED BY PPL',
+            'Submitted by Pencacah',
+            'SUBMITTED BY PENCACAH',
             'Submitted',
             'SUBMITTED',
         ],
         'approved' => [
             'Approved by PML',
             'APPROVED BY PML',
+            'Approved by Pengawas',
+            'APPROVED BY PENGAWAS',
             'Completed by PML',
             'COMPLETED BY PML',
             'Completed by Admin Kabupaten',
@@ -63,6 +67,10 @@ class CsvMappingService
         'rejected' => [
             'Rejected by PML',
             'REJECTED BY PML',
+            'Rejected by Pengawas',
+            'REJECTED BY PENGAWAS',
+            'Rejected by Admin Kabupaten',
+            'REJECTED BY ADMIN KABUPATEN',
             'Rejected',
             'REJECTED',
         ],

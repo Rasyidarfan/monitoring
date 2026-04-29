@@ -587,62 +587,94 @@ class UploadController extends Controller
                 throw new \Exception('CSV file is empty');
             }
 
-            // Expected headers: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
             $headerMap = array_flip(array_map('strtoupper', $header));
 
-            // Validate required headers
-            $requiredHeaders = ['KODE_DAERAH', 'DSRT', 'NO_ART', 'NAMA_KRT', 'NAMA_ART', 'ANOMALI'];
-            foreach ($requiredHeaders as $requiredHeader) {
-                if (!isset($headerMap[$requiredHeader])) {
-                    throw new \Exception("Missing required column: {$requiredHeader}");
-                }
+            // Flexible header mapping - support both PODES and ART-level formats
+            $kodeIndex = $headerMap['KODE_DAERAH'] ?? $headerMap['KODE_DESA'] ?? null;
+            $kecIndex = $headerMap['KEC'] ?? $headerMap['KECAMATAN'] ?? null;
+            $desaIndex = $headerMap['DESA'] ?? null;
+            $linkIndex = $headerMap['LINK'] ?? $headerMap['ASSIGNMENT_ID'] ?? null;
+            $anomaliIndex = $headerMap['ANOMALI'] ?? $headerMap['KODE_ANOMALI'] ?? null;
+
+            if ($kodeIndex === null || $anomaliIndex === null) {
+                throw new \Exception('Missing required columns. Need at least: KODE_DAERAH/Kode_Desa and ANOMALI/Kode_Anomali');
             }
 
-            // SYNC Mode: Clear anomaly data, then insert new records
-            AnomalyData::where('activity_id', $activity->id)->delete();
+            // Detect format: PODES (no DSRT) or ART-level (has DSRT)
+            $isPODES = !isset($headerMap['DSRT']) && isset($headerMap['KODE_DESA']);
 
+            // MERGE Mode: Do NOT delete existing data, upsert per anomali
             $inserted = 0;
             $skipped = 0;
 
             while (($row = fgetcsv($handle)) !== false) {
-                // Extract fields based on header mapping
-                $kodeDaerah = trim($row[$headerMap['KODE_DAERAH']] ?? '');
-                $kecamatan = trim($row[$headerMap['KEC'] ?? -1] ?? '');
-                $desa = trim($row[$headerMap['DESA'] ?? -1] ?? '');
-                $dsrt = trim($row[$headerMap['DSRT']] ?? '');
-                $noArt = intval($row[$headerMap['NO_ART']] ?? 0);
-                $namaKrt = trim($row[$headerMap['NAMA_KRT']] ?? '');
-                $namaArt = trim($row[$headerMap['NAMA_ART']] ?? '');
-                $link = trim($row[$headerMap['LINK'] ?? -1] ?? '');
-                $anomali = trim($row[$headerMap['ANOMALI']] ?? '');
+                // Extract basic fields
+                $kodeDaerah = trim($row[$kodeIndex] ?? '');
+                $kecamatan = trim($row[$kecIndex] ?? '');
+                $desa = trim($row[$desaIndex] ?? '');
+                $link = trim($row[$linkIndex] ?? '');
 
-                // Skip if required fields are empty
-                if (!$kodeDaerah || !$dsrt || !$namaKrt || !$namaArt) {
+                // Handle PODES vs ART-level data
+                if ($isPODES) {
+                    // PODES format: use dummy values for missing columns
+                    $dsrt = 'PODES';
+                    $noArt = 0;
+                    $namaKrt = !empty($desa) ? $desa : 'ANOMALI DESA';
+                    $namaArt = 'Anomali Desa-Level';
+                } else {
+                    // ART-level format: extract from CSV headers
+                    $dsrtIndex = $headerMap['DSRT'] ?? null;
+                    $noArtIndex = $headerMap['NO_ART'] ?? null;
+                    $namaKrtIndex = $headerMap['NAMA_KRT'] ?? null;
+                    $namaArtIndex = $headerMap['NAMA_ART'] ?? null;
+
+                    $dsrt = trim($row[$dsrtIndex] ?? '');
+                    $noArt = intval($row[$noArtIndex] ?? 0);
+                    $namaKrt = trim($row[$namaKrtIndex] ?? '');
+                    $namaArt = trim($row[$namaArtIndex] ?? '');
+
+                    if (!$dsrt || !$namaKrt || !$namaArt) {
+                        $skipped++;
+                        continue;
+                    }
+                }
+
+                // Validate minimum required fields
+                if (!$kodeDaerah) {
                     $skipped++;
                     continue;
                 }
 
-                // Skip if no anomali
-                if (empty($anomali)) {
+                // Parse anomali codes (comma-separated)
+                $anomaliRaw = trim($row[$anomaliIndex] ?? '');
+                $anomaliCodes = array_filter(array_map('trim', explode(',', $anomaliRaw)));
+
+                if (empty($anomaliCodes)) {
                     $skipped++;
                     continue;
                 }
 
-                // Insert anomaly data
-                AnomalyData::create([
-                    'activity_id' => $activity->id,
-                    'kode_daerah' => $kodeDaerah,
-                    'kecamatan' => $kecamatan,
-                    'desa' => $desa,
-                    'dsrt' => $dsrt,
-                    'no_art' => $noArt,
-                    'nama_krt' => $namaKrt,
-                    'nama_art' => $namaArt,
-                    'link' => !empty($link) ? $link : null,
-                    'anomali' => $anomali,
-                ]);
-
-                $inserted++;
+                // Insert/Update per anomali code (MERGE MODE)
+                foreach ($anomaliCodes as $anomaliCode) {
+                    AnomalyData::updateOrCreate(
+                        [
+                            'activity_id' => $activity->id,
+                            'kode_daerah' => $kodeDaerah,
+                            'dsrt' => $dsrt,
+                            'no_art' => $noArt,
+                            'anomali' => $anomaliCode, // Single anomali code per row
+                        ],
+                        [
+                            'kecamatan' => $kecamatan,
+                            'desa' => $desa,
+                            'nama_krt' => $namaKrt,
+                            'nama_art' => $namaArt,
+                            'link' => !empty($link) ? $link : null,
+                            'checked' => false, // Reset checked flag on update
+                        ]
+                    );
+                    $inserted++;
+                }
             }
 
             fclose($handle);
@@ -662,8 +694,8 @@ class UploadController extends Controller
                 'status' => 'completed',
             ]);
 
-            $message = "Anomaly CSV uploaded successfully! Imported: {$inserted}.";
-            if ($skipped > 0) $message .= " Skipped: {$skipped} (missing required fields).";
+            $message = "Anomaly CSV uploaded successfully! MERGE mode: Imported {$inserted} anomali records.";
+            if ($skipped > 0) $message .= " Skipped {$skipped} rows.";
 
             return back()->with('success', $message);
 

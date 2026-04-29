@@ -135,7 +135,7 @@
                                class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
                                required>
                         <p class="text-xs text-gray-500 mt-1">
-                            Format: KODE_DAERAH, KEC, DESA, DSRT, NO_ART, NAMA_KRT, NAMA_ART, LINK, Anomali
+                            Format: KODE_DAERAH/Kode_Desa, KEC/Kecamatan, DESA, LINK/assignment_id, Anomali/Kode_Anomali (required). Optional: DSRT, NO_ART, NAMA_KRT, NAMA_ART untuk data per-ART.
                         </p>
                     </div>
                     <button type="submit"
@@ -282,9 +282,101 @@
             <li>Upload <strong>JSON (PJ Mapping)</strong> untuk mapping Penanggung Jawab (PJ) ke desa - akan mengganti mapping lama</li>
             <li>Upload <strong>CSV</strong> untuk data monitoring (Target, Open, Submitted, Approved, Rejected) - akan menghapus semua data lama dan mengimport data baru</li>
             <li>Upload <strong>ZIP</strong> untuk batch upload CSV (lebih praktis) - akan menghapus semua data lama dan mengimport data baru</li>
-            <li>Upload <strong>Anomaly CSV</strong> untuk data anomali per ART - akan menampilkan tab Anomali dengan detail anomali per keluarga</li>
+            <li>Upload <strong>Anomaly CSV</strong> untuk data anomali - <strong>Mode MERGE:</strong> upload file bergantian akan menggabungkan data anomali. Mendukung format PODES (desa-level) dan per-ART. Setiap kode anomali disimpan terpisah untuk tracking yang akurat.</li>
             <li>Mapping PJ disimpan terpisah dan dapat di-update kapan saja tanpa menghapus data monitoring</li>
         </ul>
+    </div>
+
+    <!-- CSV Column Mapping Guide -->
+    <div class="bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg p-6">
+        <p class="text-cyan-900 font-semibold mb-4">📊 Keterangan Mapping Kolom CSV</p>
+        <p class="text-cyan-900 text-sm mb-4">
+            Sistem secara otomatis mengenali dan memetakan kolom CSV ke 5 kategori target utama. Sistem mendukung berbagai variasi nama kolom (case-insensitive) dari file CSV/ZIP yang berbeda format.
+        </p>
+
+        <div class="space-y-4">
+            <!-- Target Mapping -->
+            <div class="bg-white rounded p-4 border-l-4 border-purple-500">
+                <p class="font-semibold text-gray-800 text-sm mb-2">🎯 Target</p>
+                <p class="text-gray-600 text-sm mb-2">Kolom yang dikenali:</p>
+                <div class="bg-gray-100 rounded p-2 font-mono text-xs text-gray-800 space-y-1">
+                    <div>• Target</div>
+                    <div>• TARGET</div>
+                </div>
+            </div>
+
+            <!-- Open Mapping -->
+            <div class="bg-white rounded p-4 border-l-4 border-blue-500">
+                <p class="font-semibold text-gray-800 text-sm mb-2">📂 Open</p>
+                <p class="text-gray-600 text-sm mb-2">Kolom yang dikenali:</p>
+                <div class="bg-gray-100 rounded p-2 font-mono text-xs text-gray-800 space-y-1">
+                    <div>• Open</div>
+                    <div>• OPEN</div>
+                </div>
+            </div>
+
+            <!-- Submitted Mapping -->
+            <div class="bg-white rounded p-4 border-l-4 border-green-500">
+                <p class="font-semibold text-gray-800 text-sm mb-2">✅ Submit (Submitted)</p>
+                <p class="text-gray-600 text-sm mb-2">Kolom yang dikenali:</p>
+                <div class="bg-gray-100 rounded p-2 font-mono text-xs text-gray-800 space-y-1">
+                    <div>• Submitted by PPL</div>
+                    <div>• SUBMITTED BY PPL</div>
+                    <div>• Submitted by Pencacah</div>
+                    <div>• SUBMITTED BY PENCACAH</div>
+                    <div>• Submitted</div>
+                    <div>• SUBMITTED</div>
+                </div>
+            </div>
+
+            <!-- Approved Mapping -->
+            <div class="bg-white rounded p-4 border-l-4 border-yellow-500">
+                <p class="font-semibold text-gray-800 text-sm mb-2">👍 Approve (Approved)</p>
+                <p class="text-gray-600 text-sm mb-2">Kolom yang dikenali:</p>
+                <div class="bg-gray-100 rounded p-2 font-mono text-xs text-gray-800 space-y-1">
+                    <div>• Approved by PML</div>
+                    <div>• APPROVED BY PML</div>
+                    <div>• Approved by Pengawas</div>
+                    <div>• APPROVED BY PENGAWAS</div>
+                    <div>• Completed by PML</div>
+                    <div>• COMPLETED BY PML</div>
+                    <div>• Completed by Admin Kabupaten</div>
+                    <div>• COMPLETED BY ADMIN KABUPATEN</div>
+                    <div>• Approved by Admin Kabupaten</div>
+                    <div>• APPROVED BY ADMIN KABUPATEN</div>
+                    <div>• Edited by Admin</div>
+                    <div>• EDITED BY ADMIN</div>
+                    <div>• Completed by Admin</div>
+                    <div>• COMPLETED BY ADMIN</div>
+                    <div>• Approved</div>
+                    <div>• APPROVED</div>
+                    <div>• Completed</div>
+                    <div>• COMPLETED</div>
+                    <div>• Edited</div>
+                    <div>• EDITED</div>
+                </div>
+            </div>
+
+            <!-- Rejected Mapping -->
+            <div class="bg-white rounded p-4 border-l-4 border-red-500">
+                <p class="font-semibold text-gray-800 text-sm mb-2">❌ Reject (Rejected)</p>
+                <p class="text-gray-600 text-sm mb-2">Kolom yang dikenali:</p>
+                <div class="bg-gray-100 rounded p-2 font-mono text-xs text-gray-800 space-y-1">
+                    <div>• Rejected by PML</div>
+                    <div>• REJECTED BY PML</div>
+                    <div>• Rejected by Pengawas</div>
+                    <div>• REJECTED BY PENGAWAS</div>
+                    <div>• Rejected by Admin Kabupaten</div>
+                    <div>• REJECTED BY ADMIN KABUPATEN</div>
+                    <div>• Rejected</div>
+                    <div>• REJECTED</div>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-cyan-900 text-xs mt-4 pt-4 border-t border-cyan-200">
+            💡 <strong>Catatan:</strong> Sistem menggunakan logika MAX saat update - akan menyimpan nilai terbesar jika ada update dari file berbeda.
+        </p>
     </div>
 </div>
 @endsection

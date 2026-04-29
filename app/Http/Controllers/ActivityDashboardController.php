@@ -428,20 +428,68 @@ class ActivityDashboardController extends Controller
             // Build ART list with anomali details and check status
             $artWithAnomalies = [];
             $allChecked = true;
-            foreach ($artList as $art) {
-                $anomalyDetails = $art->getAnomalyDetails();
+
+            // Check if PODES format (no_art = 0)
+            $isPODES = $firstArt->no_art === 0;
+
+            if ($isPODES) {
+                // PODES format: combine all anomalies into single entry
+                $allAnomalies = [];
+                $podesId = null;
+                $podesLink = null;
+                $podesChecked = true;
+
+                foreach ($artList as $art) {
+                    // Collect anomaly codes
+                    if (!empty($art->anomali)) {
+                        $allAnomalies[] = $art->anomali;
+                    }
+                    if ($podesId === null) {
+                        $podesId = $art->id;
+                    }
+                    if (!empty($art->link) && $podesLink === null) {
+                        $podesLink = $art->link;
+                    }
+                    if (!$art->checked) {
+                        $podesChecked = false;
+                    }
+                }
+
+                // Get combined anomaly details
+                $combinedAnomalyString = implode(' ', $allAnomalies);
+                $anomalyDetails = [];
+                if (!empty($combinedAnomalyString)) {
+                    $codes = array_unique(array_map('trim', explode(' ', $combinedAnomalyString)));
+                    $anomalyDetails = Anomaly::whereIn('code', $codes)->get(['code', 'description', 'rule'])->toArray();
+                }
 
                 $artWithAnomalies[] = [
-                    'id' => $art->id,
-                    'no_art' => $art->no_art,
-                    'nama_art' => $art->nama_art,
-                    'link' => $art->link,
-                    'checked' => (bool) $art->checked,
+                    'id' => $podesId,
+                    'no_art' => 0,
+                    'nama_art' => 'Anomali Desa-Level',
+                    'link' => $podesLink,
+                    'checked' => $podesChecked,
                     'anomali_details' => $anomalyDetails,
                 ];
 
-                if (!$art->checked) {
-                    $allChecked = false;
+                $allChecked = $podesChecked;
+            } else {
+                // ART-level format: one entry per ART
+                foreach ($artList as $art) {
+                    $anomalyDetails = $art->getAnomalyDetails();
+
+                    $artWithAnomalies[] = [
+                        'id' => $art->id,
+                        'no_art' => $art->no_art,
+                        'nama_art' => $art->nama_art,
+                        'link' => $art->link,
+                        'checked' => (bool) $art->checked,
+                        'anomali_details' => $anomalyDetails,
+                    ];
+
+                    if (!$art->checked) {
+                        $allChecked = false;
+                    }
                 }
             }
 
@@ -449,6 +497,7 @@ class ActivityDashboardController extends Controller
             $cards[] = [
                 'kode_daerah' => $firstArt->kode_daerah,
                 'dsrt' => $firstArt->dsrt,
+                'no_art' => $firstArt->no_art,
                 'kecamatan' => $firstArt->kecamatan,
                 'desa' => $firstArt->desa,
                 'nama_krt' => $firstArt->nama_krt,
