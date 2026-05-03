@@ -34,6 +34,9 @@ class AnomalyData extends Model
         }
 
         $codes = explode(' ', trim($this->anomali));
-        return Anomaly::whereIn('code', $codes)->get(['code', 'description', 'rule'])->toArray();
+        return Anomaly::where('activity_id', $this->activity_id)
+            ->whereIn('code', $codes)
+            ->get(['code', 'description', 'rule'])
+            ->toArray();
     }
 }

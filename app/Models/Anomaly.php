@@ -3,13 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Anomaly extends Model
 {
-    protected $fillable = ['code', 'rule', 'description'];
+    protected $fillable = ['activity_id', 'code', 'rule', 'description'];
 
-    public function getDescriptionByCode($code)
+    public function activity(): BelongsTo
     {
-        return self::where('code', $code)->first()?->description ?? "Anomali {$code}";
+        return $this->belongsTo(Activity::class);
+    }
+
+    public function getDescriptionByCode(string $code, ?int $activityId = null): string
+    {
+        $query = self::where('code', $code);
+
+        if ($activityId) {
+            $query->where('activity_id', $activityId);
+        }
+
+        return $query->first()?->description ?? "Anomali {$code}";
     }
 }

@@ -11,6 +11,8 @@ use App\Services\CsvMappingService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use ZipArchive;
 
 class UploadController extends Controller
@@ -512,8 +514,8 @@ class UploadController extends Controller
                 throw new \Exception('JSON must be an array of anomaly objects');
             }
 
-            // SYNC Mode: Clear and reload anomalies master data
-            Anomaly::truncate();
+            // SYNC Mode: Clear and reload anomalies master data for this activity only
+            Anomaly::where('activity_id', $activity->id)->delete();
 
             $inserted = 0;
             $skipped = 0;
@@ -534,6 +536,7 @@ class UploadController extends Controller
                 }
 
                 Anomaly::create([
+                    'activity_id' => $activity->id,
                     'code' => $code,
                     'rule' => $rule,
                     'description' => $description,
@@ -702,6 +705,281 @@ class UploadController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Error uploading Anomaly CSV: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Upload multiple Anomaly CSV files with Intelligent Sync mode
+     * - Keep anomalies in both DB and CSV
+     * - Delete orphaned anomalies (only in DB)
+     * - Insert new anomalies (only in CSV)
+     */
+    public function uploadAnomalyCSVIntelligentSync(Request $request, Activity $activity): JsonResponse
+    {
+        try {
+            $request->validate([
+                'anomaly_csv_files' => 'required|array|min:1|max:20',
+                'anomaly_csv_files.*' => 'required|file|mimes:csv,txt|max:10240',
+                'mode' => 'required|in:merge,intelligent_sync',
+            ]);
+
+            $mode = $request->input('mode', 'intelligent_sync');
+            $files = $request->file('anomaly_csv_files');
+            $fileStats = [];
+            $allCsvAnomalies = [];
+            $totalInserted = 0;
+            $totalUpdated = 0;
+            $totalDeleted = 0;
+            $totalSkipped = 0;
+
+            // PHASE 1: Parse all CSV files and validate headers
+            foreach ($files as $file) {
+                $handle = fopen($file->getRealPath(), 'r');
+
+                if (!$handle) {
+                    throw new \Exception("Cannot open file: {$file->getClientOriginalName()}");
+                }
+
+                $header = fgetcsv($handle);
+                if (!$header) {
+                    fclose($handle);
+                    throw new \Exception("CSV file is empty: {$file->getClientOriginalName()}");
+                }
+
+                // Validate CSV headers
+                $headerMap = array_flip(array_map('strtoupper', $header));
+                $kodeIndex = $headerMap['KODE_DAERAH'] ?? $headerMap['KODE_DESA'] ?? null;
+                $kecIndex = $headerMap['KEC'] ?? $headerMap['KECAMATAN'] ?? null;
+                $desaIndex = $headerMap['DESA'] ?? null;
+                $linkIndex = $headerMap['LINK'] ?? $headerMap['ASSIGNMENT_ID'] ?? null;
+                $anomaliIndex = $headerMap['ANOMALI'] ?? $headerMap['KODE_ANOMALI'] ?? null;
+
+                if ($kodeIndex === null || $anomaliIndex === null) {
+                    fclose($handle);
+                    throw new \Exception("File '{$file->getClientOriginalName()}' missing required columns. Need: KODE_DAERAH/Kode_Desa and ANOMALI/Kode_Anomali");
+                }
+
+                // Detect format: PODES or ART-level
+                $isPODES = !isset($headerMap['DSRT']) && isset($headerMap['KODE_DESA']);
+
+                // Parse rows for this file
+                $fileRowCount = 0;
+                $fileSkipped = 0;
+
+                while (($row = fgetcsv($handle)) !== false) {
+                    $fileRowCount++;
+
+                    $kodeDaerah = trim($row[$kodeIndex] ?? '');
+                    $kecamatan = trim($row[$kecIndex] ?? '');
+                    $desa = trim($row[$desaIndex] ?? '');
+                    $link = trim($row[$linkIndex] ?? '');
+
+                    // Handle PODES vs ART-level data
+                    if ($isPODES) {
+                        $dsrt = 'PODES';
+                        $noArt = 0;
+                        $namaKrt = !empty($desa) ? $desa : 'ANOMALI DESA';
+                        $namaArt = 'Anomali Desa-Level';
+                    } else {
+                        $dsrtIndex = $headerMap['DSRT'] ?? null;
+                        $noArtIndex = $headerMap['NO_ART'] ?? null;
+                        $namaKrtIndex = $headerMap['NAMA_KRT'] ?? null;
+                        $namaArtIndex = $headerMap['NAMA_ART'] ?? null;
+
+                        $dsrt = trim($row[$dsrtIndex] ?? '');
+                        $noArt = intval($row[$noArtIndex] ?? 0);
+                        $namaKrt = trim($row[$namaKrtIndex] ?? '');
+                        $namaArt = trim($row[$namaArtIndex] ?? '');
+
+                        if (!$dsrt || !$namaKrt || !$namaArt) {
+                            $fileSkipped++;
+                            continue;
+                        }
+                    }
+
+                    // Validate minimum required fields
+                    if (!$kodeDaerah) {
+                        $fileSkipped++;
+                        continue;
+                    }
+
+                    // Parse anomali codes (comma-separated)
+                    $anomaliRaw = trim($row[$anomaliIndex] ?? '');
+                    $anomaliCodes = array_filter(array_map('trim', explode(',', $anomaliRaw)));
+
+                    if (empty($anomaliCodes)) {
+                        $fileSkipped++;
+                        continue;
+                    }
+
+                    // Store anomaly data keyed by unique identifier
+                    foreach ($anomaliCodes as $anomaliCode) {
+                        $key = $this->buildAnomalyKey($activity->id, $kodeDaerah, $dsrt, $noArt, $anomaliCode);
+
+                        $allCsvAnomalies[$key] = [
+                            'activity_id' => $activity->id,
+                            'kode_daerah' => $kodeDaerah,
+                            'kecamatan' => $kecamatan,
+                            'desa' => $desa,
+                            'dsrt' => $dsrt,
+                            'no_art' => $noArt,
+                            'nama_krt' => $namaKrt,
+                            'nama_art' => $namaArt,
+                            'link' => !empty($link) ? $link : null,
+                            'anomali' => $anomaliCode,
+                        ];
+                    }
+                }
+
+                fclose($handle);
+
+                $fileStats[] = [
+                    'filename' => $file->getClientOriginalName(),
+                    'status' => 'success',
+                    'rows_processed' => $fileRowCount,
+                    'skipped' => $fileSkipped,
+                ];
+            }
+
+            // PHASE 2: Database transaction for INTELLIGENT SYNC
+            if ($mode === 'intelligent_sync') {
+                $result = DB::transaction(function () use ($activity, $allCsvAnomalies) {
+                    $inserted = 0;
+                    $updated = 0;
+                    $deleted = 0;
+
+                    // Get all existing anomalies for this activity
+                    $existingAnomalies = AnomalyData::where('activity_id', $activity->id)
+                        ->get()
+                        ->keyBy(function($item) {
+                            return $this->buildAnomalyKey(
+                                $item->activity_id,
+                                $item->kode_daerah,
+                                $item->dsrt,
+                                $item->no_art,
+                                $item->anomali
+                            );
+                        });
+
+                    // Collect all existing keys for deletion check
+                    $existingKeysToDelete = $existingAnomalies->keys()->flip();
+
+                    // INTELLIGENT SYNC: Insert/Update CSV anomalies
+                    foreach ($allCsvAnomalies as $key => $csvData) {
+                        if (isset($existingAnomalies[$key])) {
+                            // UPDATE: exists in both DB and CSV
+                            $existingAnomalies[$key]->update([
+                                'kecamatan' => $csvData['kecamatan'],
+                                'desa' => $csvData['desa'],
+                                'nama_krt' => $csvData['nama_krt'],
+                                'nama_art' => $csvData['nama_art'],
+                                'link' => $csvData['link'],
+                                'checked' => false,
+                            ]);
+                            $updated++;
+                        } else {
+                            // INSERT: only in CSV
+                            AnomalyData::create(array_merge($csvData, [
+                                'checked' => false,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]));
+                            $inserted++;
+                        }
+                        // Remove from deletion candidates
+                        unset($existingKeysToDelete[$key]);
+                    }
+
+                    // DELETE: anomalies only in DB (orphaned)
+                    foreach ($existingKeysToDelete as $key => $dummy) {
+                        if (isset($existingAnomalies[$key])) {
+                            $existingAnomalies[$key]->delete();
+                            $deleted++;
+                        }
+                    }
+
+                    return [
+                        'inserted' => $inserted,
+                        'updated' => $updated,
+                        'deleted' => $deleted,
+                    ];
+                });
+
+                $totalInserted = $result['inserted'];
+                $totalUpdated = $result['updated'];
+                $totalDeleted = $result['deleted'];
+            } else {
+                // MERGE MODE: Just insert/update, no delete
+                foreach ($allCsvAnomalies as $csvData) {
+                    $existing = AnomalyData::where('activity_id', $csvData['activity_id'])
+                        ->where('kode_daerah', $csvData['kode_daerah'])
+                        ->where('dsrt', $csvData['dsrt'])
+                        ->where('no_art', $csvData['no_art'])
+                        ->where('anomali', $csvData['anomali'])
+                        ->first();
+
+                    if ($existing) {
+                        $existing->update([
+                            'kecamatan' => $csvData['kecamatan'],
+                            'desa' => $csvData['desa'],
+                            'nama_krt' => $csvData['nama_krt'],
+                            'nama_art' => $csvData['nama_art'],
+                            'link' => $csvData['link'],
+                            'checked' => false,
+                        ]);
+                        $totalUpdated++;
+                    } else {
+                        AnomalyData::create(array_merge($csvData, [
+                            'checked' => false,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]));
+                        $totalInserted++;
+                    }
+                }
+            }
+
+            // PHASE 3: Create upload history per file
+            foreach ($files as $index => $file) {
+                $activity->uploadHistories()->create([
+                    'uploaded_by' => auth()->id(),
+                    'file_type' => 'anomaly_csv',
+                    'original_filename' => $file->getClientOriginalName(),
+                    'stored_filename' => $file->getClientOriginalName(),
+                    'file_size' => $file->getSize(),
+                    'records_imported' => ($fileStats[$index]['rows_processed'] - $fileStats[$index]['skipped']),
+                    'status' => 'completed',
+                ]);
+            }
+
+            // Update activity timestamp
+            $activity->update(['last_data_upload_at' => now()]);
+
+            // Return success response
+            return response()->json([
+                'status' => 'success',
+                'files' => $fileStats,
+                'summary' => [
+                    'total_inserted' => $totalInserted,
+                    'total_updated' => $totalUpdated,
+                    'total_deleted' => $totalDeleted,
+                    'total_skipped' => $totalSkipped,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'error' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Helper: Build unique anomaly key for comparison
+     */
+    private function buildAnomalyKey(int $activityId, string $kodeDaerah, string $dsrt, int $noArt, string $anomali): string
+    {
+        return "{$activityId}|{$kodeDaerah}|{$dsrt}|{$noArt}|{$anomali}";
     }
 
     /**

@@ -460,7 +460,10 @@ class ActivityDashboardController extends Controller
                 $anomalyDetails = [];
                 if (!empty($combinedAnomalyString)) {
                     $codes = array_unique(array_map('trim', explode(' ', $combinedAnomalyString)));
-                    $anomalyDetails = Anomaly::whereIn('code', $codes)->get(['code', 'description', 'rule'])->toArray();
+                    $anomalyDetails = Anomaly::where('activity_id', $activity->id)
+                        ->whereIn('code', $codes)
+                        ->get(['code', 'description', 'rule'])
+                        ->toArray();
                 }
 
                 $artWithAnomalies[] = [
