@@ -119,31 +119,87 @@
             </form>
         </div>
 
-        <!-- Row 3: Upload Anomaly CSV -->
+        <!-- Row 3: Upload Anomaly CSV (Multi-File with Drag & Drop) -->
         <div class="bg-white rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali</h3>
-            <form action="{{ route('upload.anomaly-csv', $activity) }}" method="POST" enctype="multipart/form-data">
-                @csrf
-                <div class="space-y-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali (Multi-File)</h3>
+
+            <!-- Upload Mode Info (INTELLIGENT SYNC only) -->
+            <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded">
+                <div class="flex items-start">
+                    <svg class="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Select Anomaly CSV File
-                        </label>
-                        <input type="file"
-                               name="anomaly_csv_file"
-                               accept=".csv,.txt"
-                               class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">
-                            Format: KODE_DAERAH/Kode_Desa, KEC/Kecamatan, DESA, LINK/assignment_id, Anomali/Kode_Anomali (required). Optional: DSRT, NO_ART, NAMA_KRT, NAMA_ART untuk data per-ART.
-                        </p>
+                        <h4 class="font-semibold text-green-900 mb-1">🔄 INTELLIGENT SYNC Mode</h4>
+                        <ul class="text-xs text-green-800 space-y-1">
+                            <li>✓ Anomali di BOTH CSV dan DB → KEEP & update</li>
+                            <li>✓ Anomali hanya di CSV → INSERT (baru)</li>
+                            <li>✓ Anomali hanya di DB → DELETE (orphaned)</li>
+                        </ul>
                     </div>
-                    <button type="submit"
-                            class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
-                        Upload Anomaly CSV
-                    </button>
                 </div>
-            </form>
+                <input type="hidden" id="upload-mode" value="intelligent_sync">
+            </div>
+
+            <!-- Drag & Drop Zone -->
+            <div id="drop-zone"
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer mb-4 bg-gray-50">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <p class="mt-2 text-sm text-gray-600">
+                    <span class="font-semibold">Drag & drop file CSV di sini</span> atau klik untuk memilih
+                </p>
+                <p class="text-xs text-gray-500 mt-1">Mendukung multiple files (max 10MB setiap file, max 20 files)</p>
+            </div>
+
+            <!-- File Input (Hidden) -->
+            <input type="file"
+                   id="file-input"
+                   name="anomaly_csv_files[]"
+                   accept=".csv,.txt"
+                   multiple
+                   class="hidden">
+
+            <!-- Selected Files List -->
+            <div id="file-list" class="mb-4 space-y-2 hidden">
+                <h4 class="text-sm font-medium text-gray-700">File Terpilih:</h4>
+                <div id="file-items" class="space-y-2">
+                    <!-- File items akan diinsert oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Upload Progress -->
+            <div id="upload-progress" class="mb-4 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700">Uploading...</span>
+                    <span id="progress-percentage" class="text-sm text-gray-600">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div id="upload-status" class="mt-2 text-xs text-gray-600">
+                    <!-- Status messages -->
+                </div>
+            </div>
+
+            <!-- Upload Results -->
+            <div id="upload-results" class="mb-4 hidden">
+                <!-- Results akan diinsert oleh JavaScript -->
+            </div>
+
+            <!-- Upload Button -->
+            <button type="button"
+                    id="upload-button"
+                    class="w-full bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    disabled>
+                Upload Anomaly CSV Files
+            </button>
+
+            <!-- Info Text -->
+            <p class="text-xs text-gray-500 mt-4">
+                Format: KODE_DAERAH/Kode_Desa, KEC/Kecamatan, DESA, LINK/assignment_id, Anomali/Kode_Anomali (required). Optional: DSRT, NO_ART, NAMA_KRT, NAMA_ART untuk data per-ART.
+            </p>
         </div>
 
         <!-- Row 3: Upload JSON (PJ Mapping) -->
@@ -379,4 +435,227 @@
         </p>
     </div>
 </div>
+
+<!-- JavaScript for Anomaly CSV Multi-File Upload -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileList = document.getElementById('file-list');
+    const fileItems = document.getElementById('file-items');
+    const uploadButton = document.getElementById('upload-button');
+    const uploadMode = document.getElementById('upload-mode');
+    const uploadProgress = document.getElementById('upload-progress');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadResults = document.getElementById('upload-results');
+
+    let selectedFiles = [];
+
+    // ===== Drag & Drop Handlers =====
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        const files = Array.from(e.dataTransfer.files);
+        addFiles(files);
+    });
+
+    // ===== File Input Handler =====
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        addFiles(files);
+    });
+
+    // ===== Upload Button Handler =====
+    uploadButton.addEventListener('click', handleUpload);
+
+    // ===== Mode is now fixed to INTELLIGENT SYNC =====
+
+    // ===== Helper Functions =====
+    function addFiles(files) {
+        const validFiles = files.filter(file => {
+            const isCSV = file.name.endsWith('.csv') || file.name.endsWith('.txt');
+            const isUnder10MB = file.size <= 10 * 1024 * 1024;
+            return isCSV && isUnder10MB;
+        });
+
+        validFiles.forEach(file => {
+            if (!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                selectedFiles.push(file);
+            }
+        });
+
+        renderFileList();
+        updateUploadButton();
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        renderFileList();
+        updateUploadButton();
+    }
+
+    function renderFileList() {
+        if (selectedFiles.length === 0) {
+            fileList.classList.add('hidden');
+            return;
+        }
+
+        fileList.classList.remove('hidden');
+        fileItems.innerHTML = selectedFiles.map((file, index) => `
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <svg class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">${file.name}</p>
+                        <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                    </div>
+                </div>
+                <button type="button"
+                        onclick="window.anomalyUpload.removeFile(${index})"
+                        class="text-red-600 hover:text-red-800 text-sm font-medium">
+                    Remove
+                </button>
+            </div>
+        `).join('');
+    }
+
+    function updateUploadButton() {
+        uploadButton.disabled = selectedFiles.length === 0;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        else return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    async function handleUpload() {
+        const mode = uploadMode.value;
+        const formData = new FormData();
+
+        selectedFiles.forEach(file => {
+            formData.append('anomaly_csv_files[]', file);
+        });
+        formData.append('mode', mode);
+        formData.append('_token', document.querySelector('meta[name="csrf-token"]').content);
+
+        // Show progress
+        uploadProgress.classList.remove('hidden');
+        uploadResults.classList.add('hidden');
+        uploadButton.disabled = true;
+
+        try {
+            uploadStatus.innerHTML = '<span class="text-gray-600">Uploading files...</span>';
+
+            const response = await fetch('{{ route("upload.anomaly-csv-multi", $activity) }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                displayResults(result);
+                selectedFiles = [];
+                renderFileList();
+            } else {
+                displayError(result.error || 'Upload failed');
+            }
+        } catch (error) {
+            displayError('Network error: ' + error.message);
+        } finally {
+            uploadProgress.classList.add('hidden');
+            uploadButton.disabled = false;
+        }
+    }
+
+    function displayResults(result) {
+        uploadResults.classList.remove('hidden');
+
+        const summaryHtml = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <svg class="h-5 w-5 text-green-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <h4 class="font-semibold text-green-900">Upload Successful!</h4>
+                </div>
+
+                <div class="text-sm text-green-800 mt-3 space-y-1">
+                    <p>📥 Inserted: ${result.summary.total_inserted}</p>
+                    <p>✏️ Updated: ${result.summary.total_updated}</p>
+                    <p>🗑️ Deleted: ${result.summary.total_deleted}</p>
+                    ${result.summary.total_skipped > 0 ? `<p>⏭️ Skipped: ${result.summary.total_skipped}</p>` : ''}
+                </div>
+
+                ${result.files.length > 1 ? `
+                    <details class="mt-3">
+                        <summary class="cursor-pointer text-sm font-medium text-green-900">
+                            📋 File Details (${result.files.length} files)
+                        </summary>
+                        <div class="mt-2 space-y-2">
+                            ${result.files.map(file => `
+                                <div class="text-xs bg-white p-2 rounded border border-green-100">
+                                    <p class="font-medium text-green-900">${file.filename}</p>
+                                    <p class="text-green-700">Rows: ${file.rows_processed} | Processed: ${file.rows_processed - file.skipped} | Skipped: ${file.skipped}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </details>
+                ` : ''}
+
+                <p class="text-xs text-green-600 mt-3 pt-3 border-t border-green-200">
+                    Page will refresh in 3 seconds to update upload history...
+                </p>
+            </div>
+        `;
+
+        uploadResults.innerHTML = summaryHtml;
+
+        // Reload page after 3 seconds
+        setTimeout(() => window.location.reload(), 3000);
+    }
+
+    function displayError(errorMessage) {
+        uploadResults.classList.remove('hidden');
+        uploadProgress.classList.add('hidden');
+
+        uploadResults.innerHTML = `
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div class="flex items-center">
+                    <svg class="h-5 w-5 text-red-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                    <h4 class="font-semibold text-red-900">Upload Failed</h4>
+                </div>
+                <p class="text-sm text-red-800 mt-2">${errorMessage}</p>
+            </div>
+        `;
+    }
+
+    // Expose removeFile to global scope for onclick handler
+    window.anomalyUpload = {
+        removeFile: removeFile
+    };
+});
+</script>
 @endsection

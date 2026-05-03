@@ -858,7 +858,13 @@
             @if(count($art['anomali_details']) > 0)
                 <div class="space-y-1.5 {{ $card['no_art'] !== 0 ? 'ml-1' : '' }}">
                     @foreach($art['anomali_details'] as $anomali)
-                        <div class="flex items-start gap-2 text-xs group">
+                        <div class="flex items-start gap-2 text-xs group {{ $anomali['checked'] ?? false ? 'opacity-60' : '' }}">
+                            <input type="checkbox"
+                                   class="anomaly-code-checkbox rounded w-4 h-4 mt-0.5 text-green-600 cursor-pointer"
+                                   data-anomaly-id="{{ $art['id'] }}"
+                                   data-code="{{ $anomali['code'] }}"
+                                   data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
+                                   {{ ($anomali['checked'] ?? false) ? 'checked' : '' }}>
                             <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap cursor-help relative"
                                 title="{{ $anomali['rule'] ?? 'Tidak ada rule ditetapkan' }}">
                                 {{ $anomali['code'] }}
@@ -1257,6 +1263,52 @@
 
     if (searchAnomalyInput) searchAnomalyInput.addEventListener('input', filterAnomalies);
     if (filterAnomalyPjSelect) filterAnomalyPjSelect.addEventListener('change', filterAnomalies);
+
+    // Toggle Individual Anomaly Code Check Status
+    document.querySelectorAll('.anomaly-code-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', async (e) => {
+            const anomalyId = e.target.dataset.anomalyId;
+            const code = e.target.dataset.code;
+            const kkKey = e.target.dataset.kk;
+            const isChecked = e.target.checked;
+
+            try {
+                const response = await fetch(`/admin/anomaly/${anomalyId}/toggle-code-check`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        checked: isChecked
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    e.target.checked = !isChecked;
+                    alert(data.message || 'Error updating check status');
+                    return;
+                }
+
+                if (data.success) {
+                    // Successfully updated - checkbox stays in current state
+                    if (isChecked) {
+                        e.target.disabled = true;
+                    }
+                } else {
+                    e.target.checked = !isChecked;
+                    alert(data.message || 'Error updating check status');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                e.target.checked = !isChecked;
+                alert('Terjadi kesalahan jaringan. Silakan coba lagi.');
+            }
+        });
+    });
 
     // Toggle Anomaly Check Status
     document.querySelectorAll('.anomaly-checkbox').forEach(checkbox => {

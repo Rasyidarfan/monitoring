@@ -61,6 +61,7 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::post('kegiatan/{activity}/upload/zip', [UploadController::class, 'uploadZip'])->name('upload.zip');
     Route::post('kegiatan/{activity}/upload/anomaly-json', [UploadController::class, 'uploadAnomalyJson'])->name('upload.anomaly-json');
     Route::post('kegiatan/{activity}/upload/anomaly-csv', [UploadController::class, 'uploadAnomalyCSV'])->name('upload.anomaly-csv');
+    Route::post('kegiatan/{activity}/upload/anomaly-csv-multi', [UploadController::class, 'uploadAnomalyCSVIntelligentSync'])->name('upload.anomaly-csv-multi');
     Route::post('kegiatan/{activity}/upload/officer-json', [UploadController::class, 'uploadOfficerJson'])->name('upload.officer-json');
 
     // Edit PJ Mapping
@@ -71,4 +72,5 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
 
     // Update Anomaly Check Status
     Route::post('anomaly/{anomalyData}/toggle-check', [ActivityDashboardController::class, 'toggleAnomalyCheck'])->name('anomaly.toggle-check');
+    Route::post('anomaly/{anomalyData}/toggle-code-check', [ActivityDashboardController::class, 'toggleCodeCheck'])->name('anomaly.toggle-code-check');
 });

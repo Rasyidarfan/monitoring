@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AnomalyData extends Model
 {
@@ -22,9 +24,14 @@ class AnomalyData extends Model
         'checked'
     ];
 
-    public function activity()
+    public function activity(): BelongsTo
     {
         return $this->belongsTo(Activity::class);
+    }
+
+    public function codeChecks(): HasMany
+    {
+        return $this->hasMany(AnomalyCodeCheck::class);
     }
 
     public function getAnomalyDetails()
@@ -34,9 +41,22 @@ class AnomalyData extends Model
         }
 
         $codes = explode(' ', trim($this->anomali));
-        return Anomaly::where('activity_id', $this->activity_id)
+        $anomalies = Anomaly::where('activity_id', $this->activity_id)
             ->whereIn('code', $codes)
             ->get(['code', 'description', 'rule'])
             ->toArray();
+
+        // Load check status for each code
+        $checks = $this->codeChecks()
+            ->whereIn('code', $codes)
+            ->pluck('checked', 'code')
+            ->toArray();
+
+        // Merge check status into anomaly details
+        foreach ($anomalies as &$anomaly) {
+            $anomaly['checked'] = $checks[$anomaly['code']] ?? false;
+        }
+
+        return $anomalies;
     }
 }

@@ -580,6 +580,55 @@ class ActivityDashboardController extends Controller
     }
 
     /**
+     * Toggle individual anomaly code check status
+     */
+    public function toggleCodeCheck(AnomalyData $anomalyData, Request $request)
+    {
+        try {
+            $code = $request->input('code');
+            $isChecked = $request->boolean('checked');
+
+            if (!$code) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Code tidak ditemukan',
+                ], 400);
+            }
+
+            // Find or create the code check record
+            $codeCheck = $anomalyData->codeChecks()
+                ->firstOrCreate(
+                    ['code' => $code],
+                    ['checked' => false]
+                );
+
+            // Prevent unchecking
+            if ($codeCheck->checked && !$isChecked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kode anomali ini sudah diperiksa dan tidak dapat diubah kembali.',
+                    'checked' => true,
+                ], 422);
+            }
+
+            // Update check status
+            $codeCheck->update(['checked' => $isChecked]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status kode anomali berhasil diperbarui.',
+                'checked' => $codeCheck->checked,
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get regency name from code
      */
     protected function getRegencyName(string $code): string

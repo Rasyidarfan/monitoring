@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Activity;
 use App\Models\Anomaly;
 use App\Models\AnomalyData;
+use App\Models\AnomalyCodeCheck;
 use App\Models\MonitoringData;
 use App\Models\PjMapping;
 use App\Services\CsvMappingService;
@@ -863,11 +864,18 @@ class UploadController extends Controller
                     // Collect all existing keys for deletion check
                     $existingKeysToDelete = $existingAnomalies->keys()->flip();
 
-                    // INTELLIGENT SYNC: Insert/Update CSV anomalies
+                    // INTELLIGENT SYNC: Insert/Update CSV anomalies, preserve code checks
                     foreach ($allCsvAnomalies as $key => $csvData) {
                         if (isset($existingAnomalies[$key])) {
                             // UPDATE: exists in both DB and CSV
-                            $existingAnomalies[$key]->update([
+                            $existing = $existingAnomalies[$key];
+
+                            // Preserve individual code check status
+                            $oldCodeCheck = $existing->codeChecks()
+                                ->where('code', $csvData['anomali'])
+                                ->first();
+
+                            $existing->update([
                                 'kecamatan' => $csvData['kecamatan'],
                                 'desa' => $csvData['desa'],
                                 'nama_krt' => $csvData['nama_krt'],
@@ -875,14 +883,31 @@ class UploadController extends Controller
                                 'link' => $csvData['link'],
                                 'checked' => false,
                             ]);
+
+                            // Preserve check status for this code
+                            if ($oldCodeCheck) {
+                                $existing->codeChecks()->updateOrCreate(
+                                    ['code' => $csvData['anomali']],
+                                    ['checked' => $oldCodeCheck->checked]
+                                );
+                            }
+
                             $updated++;
                         } else {
                             // INSERT: only in CSV
-                            AnomalyData::create(array_merge($csvData, [
+                            $newRecord = AnomalyData::create(array_merge($csvData, [
                                 'checked' => false,
                                 'created_at' => now(),
                                 'updated_at' => now(),
                             ]));
+
+                            // Create unchecked entry for this code
+                            AnomalyCodeCheck::create([
+                                'anomaly_data_id' => $newRecord->id,
+                                'code' => $csvData['anomali'],
+                                'checked' => false,
+                            ]);
+
                             $inserted++;
                         }
                         // Remove from deletion candidates
@@ -908,7 +933,7 @@ class UploadController extends Controller
                 $totalUpdated = $result['updated'];
                 $totalDeleted = $result['deleted'];
             } else {
-                // MERGE MODE: Just insert/update, no delete
+                // MERGE MODE: Just insert/update, no delete, preserve code checks
                 foreach ($allCsvAnomalies as $csvData) {
                     $existing = AnomalyData::where('activity_id', $csvData['activity_id'])
                         ->where('kode_daerah', $csvData['kode_daerah'])
@@ -918,6 +943,11 @@ class UploadController extends Controller
                         ->first();
 
                     if ($existing) {
+                        // Preserve code check status
+                        $oldCodeCheck = $existing->codeChecks()
+                            ->where('code', $csvData['anomali'])
+                            ->first();
+
                         $existing->update([
                             'kecamatan' => $csvData['kecamatan'],
                             'desa' => $csvData['desa'],
@@ -926,13 +956,30 @@ class UploadController extends Controller
                             'link' => $csvData['link'],
                             'checked' => false,
                         ]);
+
+                        // Preserve check status for this code
+                        if ($oldCodeCheck) {
+                            $existing->codeChecks()->updateOrCreate(
+                                ['code' => $csvData['anomali']],
+                                ['checked' => $oldCodeCheck->checked]
+                            );
+                        }
+
                         $totalUpdated++;
                     } else {
-                        AnomalyData::create(array_merge($csvData, [
+                        $newRecord = AnomalyData::create(array_merge($csvData, [
                             'checked' => false,
                             'created_at' => now(),
                             'updated_at' => now(),
                         ]));
+
+                        // Create unchecked entry for this code
+                        AnomalyCodeCheck::create([
+                            'anomaly_data_id' => $newRecord->id,
+                            'code' => $csvData['anomali'],
+                            'checked' => false,
+                        ]);
+
                         $totalInserted++;
                     }
                 }
