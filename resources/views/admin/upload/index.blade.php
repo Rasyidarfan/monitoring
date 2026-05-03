@@ -122,31 +122,11 @@
         <!-- Row 3: Upload Anomaly CSV (Multi-File with Drag & Drop) -->
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">⚠️ Upload CSV Anomali (Multi-File)</h3>
-
-            <!-- Upload Mode Info (INTELLIGENT SYNC only) -->
-            <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded">
-                <div class="flex items-start">
-                    <svg class="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                    </svg>
-                    <div>
-                        <h4 class="font-semibold text-green-900 mb-1">🔄 INTELLIGENT SYNC Mode</h4>
-                        <ul class="text-xs text-green-800 space-y-1">
-                            <li>✓ Anomali di BOTH CSV dan DB → KEEP & update</li>
-                            <li>✓ Anomali hanya di CSV → INSERT (baru)</li>
-                            <li>✓ Anomali hanya di DB → DELETE (orphaned)</li>
-                        </ul>
-                    </div>
-                </div>
-                <input type="hidden" id="upload-mode" value="intelligent_sync">
-            </div>
+            <input type="hidden" id="upload-mode" value="intelligent_sync">
 
             <!-- Drag & Drop Zone -->
             <div id="drop-zone"
-                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer mb-4 bg-gray-50">
-                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer mb-4 bg-gray-50">
                 <p class="mt-2 text-sm text-gray-600">
                     <span class="font-semibold">Drag & drop file CSV di sini</span> atau klik untuk memilih
                 </p>

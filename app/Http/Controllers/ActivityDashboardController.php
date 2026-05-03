@@ -464,6 +464,22 @@ class ActivityDashboardController extends Controller
                         ->whereIn('code', $codes)
                         ->get(['code', 'description', 'rule'])
                         ->toArray();
+
+                    // Load check status for each code from the first PODES record
+                    if ($podesId) {
+                        $podesRecord = AnomalyData::find($podesId);
+                        if ($podesRecord) {
+                            $checks = $podesRecord->codeChecks()
+                                ->whereIn('code', $codes)
+                                ->pluck('checked', 'code')
+                                ->toArray();
+
+                            // Merge check status into anomaly details
+                            foreach ($anomalyDetails as &$anomaly) {
+                                $anomaly['checked'] = $checks[$anomaly['code']] ?? false;
+                            }
+                        }
+                    }
                 }
 
                 $artWithAnomalies[] = [
