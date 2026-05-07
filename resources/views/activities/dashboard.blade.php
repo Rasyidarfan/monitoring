@@ -1310,15 +1310,25 @@
                         progressText.textContent = `${percentage}% selesai`;
                     }
 
-                    // Update checked/unchecked counts
-                    const flexContainer = statCard.querySelector('div[class*="flex"][class*="gap-4"]');
-                    if (flexContainer) {
-                        const divs = flexContainer.querySelectorAll('> div');
-                        const belumDicekDiv = divs[0]?.querySelector('div:nth-child(2)');
-                        const sudahDicekDiv = divs[1]?.querySelector('div:nth-child(2)');
+                    // Update checked/unchecked counts - find the flex container with gap-4
+                    const allDivs = Array.from(statCard.querySelectorAll('div'));
+                    const flexContainer = allDivs.find(div =>
+                        div.className && div.className.includes('flex') && div.className.includes('gap-4')
+                    );
 
-                        if (belumDicekDiv) belumDicekDiv.textContent = unchecked;
-                        if (sudahDicekDiv) sudahDicekDiv.textContent = checked;
+                    if (flexContainer) {
+                        // Get direct children only
+                        const directChildren = Array.from(flexContainer.children).filter(el => el.tagName === 'DIV');
+
+                        if (directChildren.length >= 2) {
+                            // First child: Belum Dicek section
+                            const belumDicekDiv = directChildren[0].querySelector('div:nth-child(2)');
+                            // Second child: Sudah Dicek section
+                            const sudahDicekDiv = directChildren[1].querySelector('div:nth-child(2)');
+
+                            if (belumDicekDiv) belumDicekDiv.textContent = unchecked;
+                            if (sudahDicekDiv) sudahDicekDiv.textContent = checked;
+                        }
                     }
 
                     console.log(`PJ: ${pjName}, Checked: ${checked}/${total}, Percentage: ${percentage}%`);
