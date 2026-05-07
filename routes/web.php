@@ -70,7 +70,9 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     // Batch Update PJ Mappings
     Route::post('kegiatan/{activity}/batch-update-pj', [ActivityController::class, 'batchUpdatePjMapping'])->name('activities.batch-update-pj');
 
-    // Update Anomaly Check Status
-    Route::post('anomaly/{anomalyData}/toggle-check', [ActivityDashboardController::class, 'toggleAnomalyCheck'])->name('anomaly.toggle-check');
+    // Update Anomaly Code Check Status
     Route::post('anomaly/{anomalyData}/toggle-code-check', [ActivityDashboardController::class, 'toggleCodeCheck'])->name('anomaly.toggle-code-check');
+
+    // Get Anomaly Progress per PJ (for real-time frontend updates)
+    Route::get('kegiatan/{activity}/anomaly-progress', [ActivityDashboardController::class, 'getAnomalyProgress'])->name('anomaly.progress');
 });

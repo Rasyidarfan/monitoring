@@ -308,9 +308,9 @@ class ActivityDashboardController extends Controller
             }
         }
 
-        // Sort by total_target descending
+        // Sort by pct_open ascending (terkecil ke terbesar)
         usort($data, function ($a, $b) {
-            return $b['total_target'] <=> $a['total_target'];
+            return $a['pct_open'] <=> $b['pct_open'];
         });
 
         return $data;
@@ -425,9 +425,8 @@ class ActivityDashboardController extends Controller
                 ->where('village_code', $villageCode)
                 ->first();
 
-            // Build ART list with anomali details and check status
+            // Build ART list with anomali details
             $artWithAnomalies = [];
-            $allChecked = true;
 
             // Check if PODES format (no_art = 0)
             $isPODES = $firstArt->no_art === 0;
@@ -437,7 +436,6 @@ class ActivityDashboardController extends Controller
                 $allAnomalies = [];
                 $podesId = null;
                 $podesLink = null;
-                $podesChecked = true;
 
                 foreach ($artList as $art) {
                     // Collect anomaly codes
@@ -449,9 +447,6 @@ class ActivityDashboardController extends Controller
                     }
                     if (!empty($art->link) && $podesLink === null) {
                         $podesLink = $art->link;
-                    }
-                    if (!$art->checked) {
-                        $podesChecked = false;
                     }
                 }
 
@@ -487,11 +482,8 @@ class ActivityDashboardController extends Controller
                     'no_art' => 0,
                     'nama_art' => 'Anomali Desa-Level',
                     'link' => $podesLink,
-                    'checked' => $podesChecked,
                     'anomali_details' => $anomalyDetails,
                 ];
-
-                $allChecked = $podesChecked;
             } else {
                 // ART-level format: one entry per ART
                 foreach ($artList as $art) {
@@ -502,13 +494,8 @@ class ActivityDashboardController extends Controller
                         'no_art' => $art->no_art,
                         'nama_art' => $art->nama_art,
                         'link' => $art->link,
-                        'checked' => (bool) $art->checked,
                         'anomali_details' => $anomalyDetails,
                     ];
-
-                    if (!$art->checked) {
-                        $allChecked = false;
-                    }
                 }
             }
 
@@ -522,7 +509,6 @@ class ActivityDashboardController extends Controller
                 'nama_krt' => $firstArt->nama_krt,
                 'pj_name' => $pjMapping?->pj_name ?? null,
                 'pj_code' => $pjMapping?->pj_code ?? null,
-                'all_checked' => $allChecked,
                 'art_list' => $artWithAnomalies,
             ];
         }
@@ -532,28 +518,34 @@ class ActivityDashboardController extends Controller
 
     /**
      * Get anomaly statistics per PJ (unchecked vs checked counts)
+     * Counts individual anomaly codes (not AnomalyData records)
      */
     protected function getAnomalyStatsByPj(Activity $activity): array
     {
+        // Count anomaly codes per PJ from anomaly_code_checks table
         $stats = AnomalyData::where('anomaly_data.activity_id', $activity->id)
             ->leftJoin('pj_mappings', function($join) use ($activity) {
                 $join->on(DB::raw('SUBSTRING(anomaly_data.kode_daerah, 1, 10)'), '=', 'pj_mappings.village_code')
                      ->where('pj_mappings.activity_id', $activity->id);
             })
+            ->leftJoin('anomaly_code_checks', 'anomaly_data.id', '=', 'anomaly_code_checks.anomaly_data_id')
             ->selectRaw('
                 COALESCE(pj_mappings.pj_name, "Belum ditentukan") as pj_name,
-                SUM(CASE WHEN anomaly_data.checked = 0 THEN 1 ELSE 0 END) as unchecked,
-                SUM(CASE WHEN anomaly_data.checked = 1 THEN 1 ELSE 0 END) as checked
+                COUNT(DISTINCT anomaly_code_checks.id) as total,
+                COUNT(DISTINCT CASE WHEN anomaly_code_checks.checked = 1 THEN anomaly_code_checks.id END) as checked
             ')
+            ->where(DB::raw('anomaly_data.anomali IS NOT NULL AND anomaly_data.anomali != ""'))
             ->groupBy('pj_name')
             ->orderBy('pj_name')
             ->get()
             ->map(function ($item) {
+                $total = $item->total ?? 0;
+                $checked = $item->checked ?? 0;
                 return [
                     'pj_name' => $item->pj_name,
-                    'unchecked' => $item->unchecked ?? 0,
-                    'checked' => $item->checked ?? 0,
-                    'total' => ($item->unchecked ?? 0) + ($item->checked ?? 0),
+                    'unchecked' => $total - $checked,
+                    'checked' => $checked,
+                    'total' => $total,
                 ];
             })
             ->toArray();
@@ -562,37 +554,45 @@ class ActivityDashboardController extends Controller
     }
 
     /**
-     * Toggle anomaly check status (AJAX endpoint)
-     * Only allows marking as checked (false -> true), prevents unchecking
+     * Get current anomaly code progress per PJ (API endpoint)
+     * Returns fresh counts from database for accurate progress calculation
      */
-    public function toggleAnomalyCheck(AnomalyData $anomalyData)
+    public function getAnomalyProgress(Activity $activity)
     {
-        try {
-            // Check if the anomaly is already checked - prevent unchecking
-            if ($anomalyData->checked) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anomali ini sudah diperiksa dan tidak dapat diubah kembali.',
-                    'checked' => true,
-                ], 422);
-            }
+        // Count total anomaly codes and checked codes per PJ
+        $stats = AnomalyData::where('anomaly_data.activity_id', $activity->id)
+            ->leftJoin('pj_mappings', function($join) use ($activity) {
+                $join->on(DB::raw('SUBSTRING(anomaly_data.kode_daerah, 1, 10)'), '=', 'pj_mappings.village_code')
+                     ->where('pj_mappings.activity_id', $activity->id);
+            })
+            ->leftJoin('anomaly_code_checks', 'anomaly_data.id', '=', 'anomaly_code_checks.anomaly_data_id')
+            ->selectRaw('
+                COALESCE(pj_mappings.pj_name, "Belum ditentukan") as pj_name,
+                COUNT(DISTINCT anomaly_code_checks.id) as total,
+                COUNT(DISTINCT CASE WHEN anomaly_code_checks.checked = 1 THEN anomaly_code_checks.id END) as checked
+            ')
+            ->where(DB::raw('anomaly_data.anomali IS NOT NULL AND anomaly_data.anomali != ""'))
+            ->groupBy('pj_name')
+            ->get()
+            ->map(function ($item) {
+                $total = $item->total ?? 0;
+                $checked = $item->checked ?? 0;
+                $percentage = $total > 0 ? round(($checked / $total) * 100) : 0;
 
-            // Only allow checking (false -> true), not unchecking
-            $anomalyData->update(['checked' => true]);
+                return [
+                    'pj_name' => $item->pj_name,
+                    'checked' => $checked,
+                    'unchecked' => $total - $checked,
+                    'total' => $total,
+                    'percentage' => $percentage,
+                ];
+            })
+            ->keyBy('pj_name');
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Status pengecekan berhasil diperbarui.',
-                'checked' => true,
-            ], 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan saat memperbarui status: ' . $e->getMessage(),
-                'checked' => (bool) $anomalyData->checked,
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
     }
 
     /**

@@ -254,8 +254,13 @@
 
                     <!-- Chart (hidden di mobile) -->
                     <div class="hidden md:block mt-6">
-                        <h4 class="text-md font-semibold text-gray-800 mb-3">Progress Per Kabupaten</h4>
-                        <div class="relative h-48 sm:h-56 md:h-64">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-md font-semibold text-gray-800">Progress Per Kabupaten</h4>
+                            @if($activity->last_data_upload_at)
+                                <span class="text-xs text-gray-500">Last update: {{ $activity->last_data_upload_at->format('d M Y H:i') }}</span>
+                            @endif
+                        </div>
+                        <div id="regencyChartContainer" class="relative" style="height: 300px;">
                             <canvas id="regencyChart"></canvas>
                         </div>
                     </div>
@@ -378,7 +383,12 @@
 
                     <!-- Chart (hidden di mobile) -->
                     <div class="hidden md:block mt-6">
-                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress PJ</h4>
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-md font-semibold text-gray-800">Perbandingan Progress PJ</h4>
+                            @if($activity->last_data_upload_at)
+                                <span class="text-xs text-gray-500">Last update: {{ $activity->last_data_upload_at->format('d M Y H:i') }}</span>
+                            @endif
+                        </div>
                         <div id="pjChartContainer" class="relative">
                             <canvas id="pjChart"></canvas>
                         </div>
@@ -720,7 +730,12 @@
 
                     <!-- Chart (hidden di mobile) -->
                     <div class="hidden md:block mt-6">
-                        <h4 class="text-md font-semibold text-gray-800 mb-3">Perbandingan Progress Petugas</h4>
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-md font-semibold text-gray-800">Perbandingan Progress Petugas</h4>
+                            @if($activity->last_data_upload_at)
+                                <span class="text-xs text-gray-500">Last update: {{ $activity->last_data_upload_at->format('d M Y H:i') }}</span>
+                            @endif
+                        </div>
                         <div id="officerChartContainer" class="relative">
                             <canvas id="officerChart"></canvas>
                         </div>
@@ -753,11 +768,11 @@
 
                     <!-- Anomaly Statistics per PJ -->
                     @if(count($anomalyStats) > 0)
-                        <div class="bg-white rounded-lg shadow p-4 border border-gray-200">
+                        <div class="bg-white rounded-lg shadow p-4 border border-gray-200" data-pj-section>
                             <h4 class="text-sm font-semibold text-gray-800 mb-3">Status Pengecekan Anomali Per PJ</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 @foreach($anomalyStats as $stat)
-                                    <div class="border border-gray-200 rounded-lg p-3">
+                                    <div class="border border-gray-200 rounded-lg p-3" data-pj-stat="{{ $stat['pj_name'] }}">
                                         <div class="font-medium text-sm text-gray-900 mb-2">{{ $stat['pj_name'] }}</div>
                                         <div class="flex gap-4 text-xs">
                                             <div>
@@ -808,14 +823,11 @@
                                 data-pj="{{ $card['pj_name'] ?? 'Belum ditentukan' }}"
                                 data-assignment-id="{{ $assignmentId }}">
 
-                                <!-- Header: Wilayah + PJ + Checkbox -->
+                                <!-- Header: Wilayah + PJ -->
                                 <div class="mb-3">
                                     <div class="flex justify-between items-start gap-3">
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-900 flex items-center gap-2">
-                                                <input type="checkbox" class="check-all-kk rounded w-4 h-4 text-green-600"
-                                                    data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-                                                    @if($card['all_checked']) checked disabled @endif>
+                                            <div class="font-bold text-gray-900">
                                                 {{ $card['nama_krt'] }}
                                             </div>
                                             <div class="text-sm text-gray-600 mt-1">
@@ -842,49 +854,42 @@
                                     @endphp
                                     @foreach($card['art_list'] as $art)
                                         <div class="bg-gray-50 rounded p-3 border border-gray-100 art-item text-sm">
-    <div class="flex items-start gap-2">
-        <input type="checkbox" class="anomaly-checkbox rounded w-4 h-4 mt-0.5 text-green-600"
-            data-anomaly-id="{{ $art['id'] }}"
-            data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-            @if($art['checked']) checked disabled @endif>
+                                            <div class="flex-1">
+                                                @if($card['no_art'] !== 0)
+                                                    <div class="font-medium text-gray-900 mb-2">
+                                                        ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}
+                                                    </div>
+                                                @endif
 
-        <div class="flex-1">
-            @if($card['no_art'] !== 0)
-                <div class="font-medium text-gray-900 mb-2">
-                    ART {{ $art['no_art'] }}: {{ $art['nama_art'] }}
-                </div>
-            @endif
-
-            @if(count($art['anomali_details']) > 0)
-                <div class="space-y-1.5 {{ $card['no_art'] !== 0 ? 'ml-1' : '' }}">
-                    @foreach($art['anomali_details'] as $anomali)
-                        <div class="flex items-start gap-2 text-xs group {{ $anomali['checked'] ?? false ? 'opacity-60' : '' }}">
-                            <input type="checkbox"
-                                   class="anomaly-code-checkbox rounded w-4 h-4 mt-0.5 text-green-600 cursor-pointer"
-                                   data-anomaly-id="{{ $art['id'] }}"
-                                   data-code="{{ $anomali['code'] }}"
-                                   data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
-                                   {{ ($anomali['checked'] ?? false) ? 'checked' : '' }}>
-                            <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap cursor-help relative"
-                                title="{{ $anomali['rule'] ?? 'Tidak ada rule ditetapkan' }}">
-                                {{ $anomali['code'] }}
-                                @if($anomali['rule'])
-                                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded p-2 whitespace-normal w-48 z-50 shadow-lg">
-                                        <div class="font-semibold mb-1">Rule:</div>
-                                        {{ $anomali['rule'] }}
-                                    </div>
-                                @endif
-                            </span>
-                            <span class="text-gray-700 flex-1">{{ $anomali['description'] }}</span>
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="text-xs text-gray-500">Tidak ada anomali</div>
-            @endif
-        </div>
-    </div>
-</div>
+                                                @if(count($art['anomali_details']) > 0)
+                                                    <div class="space-y-1.5 {{ $card['no_art'] !== 0 ? 'ml-1' : '' }}">
+                                                        @foreach($art['anomali_details'] as $anomali)
+                                                            <div class="flex items-start gap-2 text-xs group {{ $anomali['checked'] ?? false ? 'opacity-60' : '' }}">
+                                                                <input type="checkbox"
+                                                                       class="anomaly-code-checkbox rounded w-4 h-4 mt-0.5 text-green-600 cursor-pointer"
+                                                                       data-anomaly-id="{{ $art['id'] }}"
+                                                                       data-code="{{ $anomali['code'] }}"
+                                                                       data-kk="{{ $card['kode_daerah'] }}-{{ $card['dsrt'] }}"
+                                                                       {{ ($anomali['checked'] ?? false) ? 'checked disabled' : '' }}>
+                                                                <span class="inline-block bg-red-100 text-red-800 px-2 py-1 rounded font-bold whitespace-nowrap cursor-help relative"
+                                                                    title="{{ $anomali['rule'] ?? 'Tidak ada rule ditetapkan' }}">
+                                                                    {{ $anomali['code'] }}
+                                                                    @if($anomali['rule'])
+                                                                        <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-gray-900 text-white text-xs rounded p-2 whitespace-normal w-48 z-50 shadow-lg">
+                                                                            <div class="font-semibold mb-1">Rule:</div>
+                                                                            {{ $anomali['rule'] }}
+                                                                        </div>
+                                                                    @endif
+                                                                </span>
+                                                                <span class="text-gray-700 flex-1">{{ $anomali['description'] }}</span>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                @else
+                                                    <div class="text-xs text-gray-500">Tidak ada anomali</div>
+                                                @endif
+                                            </div>
+                                        </div>
                                     @endforeach
                                 </div>
 
@@ -983,11 +988,11 @@
                 ]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { stacked: true },
-                    y: {
+                    x: {
                         stacked: true,
                         beginAtZero: true,
                         max: 100,
@@ -996,14 +1001,15 @@
                                 return value + '%';
                             }
                         }
-                    }
+                    },
+                    y: { stacked: true }
                 },
                 plugins: {
                     legend: { position: 'top' },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
-                                return context.dataset.label + ': ' + context.parsed.y.toFixed(2) + '%';
+                                return context.dataset.label + ': ' + context.parsed.x.toFixed(2) + '%';
                             }
                         }
                     }
@@ -1264,6 +1270,65 @@
     if (searchAnomalyInput) searchAnomalyInput.addEventListener('input', filterAnomalies);
     if (filterAnomalyPjSelect) filterAnomalyPjSelect.addEventListener('change', filterAnomalies);
 
+    // Helper function to update PJ progress cards
+    function updateAllPjProgress() {
+        // Fetch fresh progress data from server
+        fetch(`/admin/kegiatan/{{ $activity->id }}/anomaly-progress`)
+            .then(response => response.json())
+            .then(json => {
+                if (!json.success || !json.data) {
+                    console.error('Failed to fetch progress data');
+                    return;
+                }
+
+                const progressData = json.data;
+                const statsSection = document.querySelector('[data-pj-section]');
+                if (!statsSection) return;
+
+                // Get all PJ stat cards
+                const pjStatCards = statsSection.querySelectorAll('[data-pj-stat]');
+
+                pjStatCards.forEach(statCard => {
+                    const pjName = statCard.getAttribute('data-pj-stat');
+                    const stats = progressData[pjName];
+
+                    if (!stats) return;
+
+                    const { checked, unchecked, total, percentage } = stats;
+
+                    // Update the progress bar width
+                    const progressBar = statCard.querySelector('div.h-full');
+                    if (progressBar) {
+                        progressBar.style.width = `${percentage}%`;
+                    }
+
+                    // Update percentage text
+                    const progressText = Array.from(statCard.querySelectorAll('div')).find(div =>
+                        div.textContent && div.textContent.includes('% selesai')
+                    );
+                    if (progressText) {
+                        progressText.textContent = `${percentage}% selesai`;
+                    }
+
+                    // Update checked/unchecked counts
+                    const flexContainer = statCard.querySelector('div[class*="flex"][class*="gap-4"]');
+                    if (flexContainer) {
+                        const divs = flexContainer.querySelectorAll('> div');
+                        const belumDicekDiv = divs[0]?.querySelector('div:nth-child(2)');
+                        const sudahDicekDiv = divs[1]?.querySelector('div:nth-child(2)');
+
+                        if (belumDicekDiv) belumDicekDiv.textContent = unchecked;
+                        if (sudahDicekDiv) sudahDicekDiv.textContent = checked;
+                    }
+
+                    console.log(`PJ: ${pjName}, Checked: ${checked}/${total}, Percentage: ${percentage}%`);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching progress:', error);
+            });
+    }
+
     // Toggle Individual Anomaly Code Check Status
     document.querySelectorAll('.anomaly-code-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', async (e) => {
@@ -1298,6 +1363,9 @@
                     if (isChecked) {
                         e.target.disabled = true;
                     }
+
+                    // Update progress card for all PJ immediately
+                    updateAllPjProgress();
                 } else {
                     e.target.checked = !isChecked;
                     alert(data.message || 'Error updating check status');
@@ -1307,83 +1375,6 @@
                 e.target.checked = !isChecked;
                 alert('Terjadi kesalahan jaringan. Silakan coba lagi.');
             }
-        });
-    });
-
-    // Toggle Anomaly Check Status
-    document.querySelectorAll('.anomaly-checkbox').forEach(checkbox => {
-        checkbox.addEventListener('change', async (e) => {
-            const anomalyId = e.target.dataset.anomalyId;
-            const kkKey = e.target.dataset.kk;
-
-            try {
-                const response = await fetch(`/admin/anomaly/${anomalyId}/toggle-check`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-                    }
-                });
-
-                const data = await response.json();
-
-                // Handle different HTTP status codes
-                if (!response.ok) {
-                    // Server returned an error status (4xx, 5xx)
-                    e.target.checked = data.checked; // Restore to server state
-                    alert(data.message || 'Error updating check status');
-
-                    // If already checked, disable the checkbox to prevent further attempts
-                    if (response.status === 422 && data.checked) {
-                        e.target.disabled = true;
-                    }
-                    return;
-                }
-
-                if (data.success) {
-                    // Successfully updated
-                    e.target.checked = data.checked;
-
-                    // If now checked, disable the checkbox to prevent unchecking
-                    if (data.checked) {
-                        e.target.disabled = true;
-                    }
-
-                    // Check if all checkboxes in this KK are checked
-                    const kkCheckboxes = document.querySelectorAll(`.anomaly-checkbox[data-kk="${kkKey}"]`);
-                    const allChecked = Array.from(kkCheckboxes).every(cb => cb.checked);
-
-                    // Update the KK-level checkbox
-                    const kkCheckbox = document.querySelector(`.check-all-kk[data-kk="${kkKey}"]`);
-                    if (kkCheckbox) {
-                        kkCheckbox.checked = allChecked;
-                        if (allChecked) {
-                            kkCheckbox.disabled = true;
-                        }
-                    }
-                } else {
-                    // Unexpected failure
-                    e.target.checked = !e.target.checked;
-                    alert(data.message || 'Error updating check status');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                e.target.checked = !e.target.checked;
-                alert('Terjadi kesalahan jaringan. Silakan coba lagi.');
-            }
-        });
-    });
-
-    // Toggle all checkboxes for a KK
-    document.querySelectorAll('.check-all-kk').forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
-            const kkKey = e.target.dataset.kk;
-            const isChecked = e.target.checked;
-
-            document.querySelectorAll(`.anomaly-checkbox[data-kk="${kkKey}"]`).forEach(cb => {
-                cb.checked = isChecked;
-                cb.dispatchEvent(new Event('change'));
-            });
         });
     });
 
