@@ -522,35 +522,60 @@ class ActivityDashboardController extends Controller
      */
     protected function getAnomalyStatsByPj(Activity $activity): array
     {
-        // Count anomaly codes per PJ from anomaly_code_checks table
-        $stats = AnomalyData::where('anomaly_data.activity_id', $activity->id)
-            ->leftJoin('pj_mappings', function($join) use ($activity) {
-                $join->on(DB::raw('SUBSTRING(anomaly_data.kode_daerah, 1, 10)'), '=', 'pj_mappings.village_code')
-                     ->where('pj_mappings.activity_id', $activity->id);
-            })
-            ->leftJoin('anomaly_code_checks', 'anomaly_data.id', '=', 'anomaly_code_checks.anomaly_data_id')
-            ->selectRaw('
-                COALESCE(pj_mappings.pj_name, "Belum ditentukan") as pj_name,
-                COUNT(DISTINCT anomaly_code_checks.id) as total,
-                COUNT(DISTINCT CASE WHEN anomaly_code_checks.checked = 1 THEN anomaly_code_checks.id END) as checked
-            ')
-            ->where(DB::raw('anomaly_data.anomali IS NOT NULL AND anomaly_data.anomali != ""'))
-            ->groupBy('pj_name')
-            ->orderBy('pj_name')
-            ->get()
-            ->map(function ($item) {
-                $total = $item->total ?? 0;
-                $checked = $item->checked ?? 0;
-                return [
-                    'pj_name' => $item->pj_name,
-                    'unchecked' => $total - $checked,
-                    'checked' => $checked,
-                    'total' => $total,
-                ];
-            })
-            ->toArray();
+        // Get all anomaly data with codes
+        $anomalyDataList = AnomalyData::where('activity_id', $activity->id)
+            ->whereNotNull('anomali')
+            ->where('anomali', '!=', '')
+            ->get();
 
-        return $stats;
+        if ($anomalyDataList->isEmpty()) {
+            return [];
+        }
+
+        // Initialize stats per PJ
+        $stats = [];
+
+        foreach ($anomalyDataList as $anomalyData) {
+            // Get village code (first 10 digits)
+            $villageCode = substr($anomalyData->kode_daerah, 0, 10);
+            $pjMapping = PjMapping::where('activity_id', $activity->id)
+                ->where('village_code', $villageCode)
+                ->first();
+
+            $pjName = $pjMapping?->pj_name ?? 'Belum ditentukan';
+
+            // Initialize if not exists
+            if (!isset($stats[$pjName])) {
+                $stats[$pjName] = [
+                    'pj_name' => $pjName,
+                    'checked' => 0,
+                    'unchecked' => 0,
+                    'total' => 0,
+                ];
+            }
+
+            // Get codes for this anomaly data
+            $codes = array_filter(array_map('trim', explode(' ', $anomalyData->anomali)));
+
+            foreach ($codes as $code) {
+                $codeCheck = $anomalyData->codeChecks()->where('code', $code)->first();
+
+                $stats[$pjName]['total']++;
+                if ($codeCheck && $codeCheck->checked) {
+                    $stats[$pjName]['checked']++;
+                } else {
+                    $stats[$pjName]['unchecked']++;
+                }
+            }
+        }
+
+        // Convert to indexed array and sort by pj_name
+        $result = array_values($stats);
+        usort($result, function ($a, $b) {
+            return strcmp($a['pj_name'], $b['pj_name']);
+        });
+
+        return $result;
     }
 
     /**
@@ -559,35 +584,55 @@ class ActivityDashboardController extends Controller
      */
     public function getAnomalyProgress(Activity $activity)
     {
-        // Count total anomaly codes and checked codes per PJ
-        $stats = AnomalyData::where('anomaly_data.activity_id', $activity->id)
-            ->leftJoin('pj_mappings', function($join) use ($activity) {
-                $join->on(DB::raw('SUBSTRING(anomaly_data.kode_daerah, 1, 10)'), '=', 'pj_mappings.village_code')
-                     ->where('pj_mappings.activity_id', $activity->id);
-            })
-            ->leftJoin('anomaly_code_checks', 'anomaly_data.id', '=', 'anomaly_code_checks.anomaly_data_id')
-            ->selectRaw('
-                COALESCE(pj_mappings.pj_name, "Belum ditentukan") as pj_name,
-                COUNT(DISTINCT anomaly_code_checks.id) as total,
-                COUNT(DISTINCT CASE WHEN anomaly_code_checks.checked = 1 THEN anomaly_code_checks.id END) as checked
-            ')
-            ->where(DB::raw('anomaly_data.anomali IS NOT NULL AND anomaly_data.anomali != ""'))
-            ->groupBy('pj_name')
-            ->get()
-            ->map(function ($item) {
-                $total = $item->total ?? 0;
-                $checked = $item->checked ?? 0;
-                $percentage = $total > 0 ? round(($checked / $total) * 100) : 0;
+        // Get all anomaly data with codes
+        $anomalyDataList = AnomalyData::where('activity_id', $activity->id)
+            ->whereNotNull('anomali')
+            ->where('anomali', '!=', '')
+            ->get();
 
-                return [
-                    'pj_name' => $item->pj_name,
-                    'checked' => $checked,
-                    'unchecked' => $total - $checked,
-                    'total' => $total,
-                    'percentage' => $percentage,
+        // Initialize stats per PJ
+        $stats = [];
+
+        foreach ($anomalyDataList as $anomalyData) {
+            // Get village code (first 10 digits)
+            $villageCode = substr($anomalyData->kode_daerah, 0, 10);
+            $pjMapping = PjMapping::where('activity_id', $activity->id)
+                ->where('village_code', $villageCode)
+                ->first();
+
+            $pjName = $pjMapping?->pj_name ?? 'Belum ditentukan';
+
+            // Initialize if not exists
+            if (!isset($stats[$pjName])) {
+                $stats[$pjName] = [
+                    'pj_name' => $pjName,
+                    'checked' => 0,
+                    'unchecked' => 0,
+                    'total' => 0,
                 ];
-            })
-            ->keyBy('pj_name');
+            }
+
+            // Get codes for this anomaly data
+            $codes = array_filter(array_map('trim', explode(' ', $anomalyData->anomali)));
+
+            foreach ($codes as $code) {
+                $codeCheck = $anomalyData->codeChecks()->where('code', $code)->first();
+
+                $stats[$pjName]['total']++;
+                if ($codeCheck && $codeCheck->checked) {
+                    $stats[$pjName]['checked']++;
+                } else {
+                    $stats[$pjName]['unchecked']++;
+                }
+            }
+        }
+
+        // Add percentage to each stat
+        foreach ($stats as &$stat) {
+            $total = $stat['total'] ?? 0;
+            $checked = $stat['checked'] ?? 0;
+            $stat['percentage'] = $total > 0 ? round(($checked / $total) * 100) : 0;
+        }
 
         return response()->json([
             'success' => true,
