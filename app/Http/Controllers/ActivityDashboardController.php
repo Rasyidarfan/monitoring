@@ -674,6 +674,7 @@ class ActivityDashboardController extends Controller
 
             // Update check status
             $codeCheck->update(['checked' => $isChecked]);
+            $codeCheck->refresh();
 
             return response()->json([
                 'success' => true,
