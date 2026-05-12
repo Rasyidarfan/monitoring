@@ -11,11 +11,12 @@ namespace App\Services;
  *   1. open - Belum disubmit (OPEN)
  *   2. submitted - Disubmit oleh PPL (SUBMITTED BY PPL)
  *   3. approved - Disetujui/Selesai (Approved/Completed by PML OR Admin Kabupaten OR Edited by Admin)
- *   4. rejected - Ditolak (REJECTED BY PML)
+ *   4. rejected - Ditolak (REJECTED BY PML OR Admin Kabupaten)
  *
  * Features:
  * - Case-insensitive header matching
  * - Flexible header variations (Completed, Approved, Edited all map to 'approved')
+ * - Multiple column support: sums all columns mapping to the same status field
  * - Handles both query_1.csv (village-level) and query_2.csv (summary)
  * - Automatic village code/name parsing from "[code] name" format
  */
@@ -78,16 +79,17 @@ class CsvMappingService
 
     /**
      * Map CSV headers to our database fields
+     * Returns ALL matching indices for each field to enable summing of multiple columns
      *
      * @param array $headers Raw CSV headers
-     * @return array Mapping of our field names to CSV column indices
+     * @return array Mapping of our field names to CSV column indices (array of indices per field)
      */
     public function mapHeaders(array $headers): array
     {
         $headerMap = [];
 
         foreach ($this->mappings as $ourField => $possibleHeaders) {
-            $headerMap[$ourField] = $this->findHeaderIndex($headers, $possibleHeaders);
+            $headerMap[$ourField] = $this->findAllHeaderIndices($headers, $possibleHeaders);
         }
 
         return $headerMap;
@@ -116,7 +118,34 @@ class CsvMappingService
     }
 
     /**
+     * Find ALL indices of matching headers
+     * Allows multiple columns to map to the same field for summing
+     *
+     * @param array $headers CSV headers
+     * @param array $possibleNames Possible header names to match
+     * @return array Array of indices for all matched headers
+     */
+    private function findAllHeaderIndices(array $headers, array $possibleNames): array
+    {
+        $indices = [];
+
+        foreach ($headers as $index => $header) {
+            $cleanHeader = trim($header, " \t\n\r\0\x0B'\"");
+
+            foreach ($possibleNames as $possibleName) {
+                if (strcasecmp($cleanHeader, $possibleName) === 0) {
+                    $indices[] = $index;
+                    break; // Move to next header after finding a match
+                }
+            }
+        }
+
+        return $indices;
+    }
+
+    /**
      * Extract values from CSV row using the header map
+     * Sums all values from multiple columns mapping to the same field
      *
      * @param array $row CSV row data
      * @param array $headerMap Header mapping from mapHeaders()
@@ -126,12 +155,19 @@ class CsvMappingService
     {
         $values = [];
 
-        foreach ($headerMap as $ourField => $csvIndex) {
-            if ($csvIndex !== null && isset($row[$csvIndex])) {
-                $values[$ourField] = $this->cleanValue($row[$csvIndex]);
-            } else {
-                $values[$ourField] = 0; // Default to 0 if field not found
+        foreach ($headerMap as $ourField => $csvIndices) {
+            $sum = 0;
+
+            // Sum all values from matching columns
+            if (is_array($csvIndices) && count($csvIndices) > 0) {
+                foreach ($csvIndices as $csvIndex) {
+                    if (isset($row[$csvIndex])) {
+                        $sum += $this->cleanValue($row[$csvIndex]);
+                    }
+                }
             }
+
+            $values[$ourField] = $sum;
         }
 
         return $values;
@@ -197,7 +233,7 @@ class CsvMappingService
     /**
      * Get format description for debugging
      *
-     * @param array $headerMap Header mapping
+     * @param array $headerMap Header mapping (array of indices per field)
      * @param array $headers Original headers
      * @return string Description of detected format
      */
@@ -205,9 +241,10 @@ class CsvMappingService
     {
         $description = "Detected CSV format:\n";
 
-        foreach ($headerMap as $ourField => $csvIndex) {
-            if ($csvIndex !== null) {
-                $description .= "  - {$ourField}: '{$headers[$csvIndex]}' (column {$csvIndex})\n";
+        foreach ($headerMap as $ourField => $csvIndices) {
+            if (is_array($csvIndices) && count($csvIndices) > 0) {
+                $columnNames = array_map(fn($idx) => "'{$headers[$idx]}' (col {$idx})", $csvIndices);
+                $description .= "  - {$ourField}: " . implode(', ', $columnNames) . " [will be summed]\n";
             } else {
                 $description .= "  - {$ourField}: NOT FOUND\n";
             }
